@@ -3,12 +3,12 @@
 import click
 
 from crucible.core.settings import Settings
-from crucible.eval.datasets import dataset_version, load_dataset
+from crucible.eval.datasets import EvalCase, dataset_version, load_dataset
 from crucible.eval.runner import EvaluationRunner
 from crucible.llm.client import AsyncOpenAIClient, LLMClient
 from crucible.optimize.objective import build_objective
 from crucible.optimize.study import run_study
-from crucible.registry import discover_apps, get_registration, registered_apps
+from crucible.registry import AppRegistration, discover_apps, get_registration, registered_apps
 from crucible.tracking.db import LineageDB
 
 discover_apps()
@@ -20,6 +20,18 @@ def _client(settings: Settings) -> LLMClient:
             "CRUCIBLE_OPENAI_API_KEY is not set; set the env var or add a .env file"
         )
     return AsyncOpenAIClient(api_key=settings.openai_api_key, base_url=settings.base_url)
+
+
+def _load_run_context(
+    app: str,
+) -> tuple[AppRegistration, Settings, LLMClient, list[EvalCase], str]:
+    """Build the shared evaluation prelude: registration, settings, client, dataset, version."""
+    registration = get_registration(app)
+    settings = Settings()
+    client = _client(settings)
+    dataset = load_dataset(registration.dataset_path)
+    version = dataset_version(registration.dataset_path)
+    return registration, settings, client, dataset, version
 
 
 @click.group()
@@ -37,11 +49,7 @@ def main() -> None:
 )
 def evaluate(app: str, program: str | None) -> None:
     """Run a baseline evaluation of APP against its default dataset."""
-    registration = get_registration(app)
-    settings = Settings()
-    client = _client(settings)
-    dataset = load_dataset(registration.dataset_path)
-    version = dataset_version(registration.dataset_path)
+    registration, settings, client, dataset, version = _load_run_context(app)
 
     if program is not None and registration.dspy_factory is None:
         supporting = ", ".join(
@@ -94,11 +102,7 @@ def evaluate(app: str, program: str | None) -> None:
 )
 def optimize(app: str, trials: int) -> None:
     """Optimize APP's configuration with an Optuna TPE study."""
-    registration = get_registration(app)
-    settings = Settings()
-    client = _client(settings)
-    dataset = load_dataset(registration.dataset_path)
-    version = dataset_version(registration.dataset_path)
+    registration, settings, client, dataset, version = _load_run_context(app)
 
     app_obj = registration.build_adapter(client, settings)
     objective = build_objective(
@@ -169,7 +173,8 @@ def compile(
     lineage_db: str | None,
 ) -> None:
     """Compile APP's DSPy program with BootstrapFewShot and record results."""
-    registration = get_registration(app)
+    registration, settings, client, dataset, version = _load_run_context(app)
+
     if registration.dspy_factory is None:
         supporting = ", ".join(
             name for name in registered_apps() if get_registration(name).dspy_factory is not None
@@ -186,11 +191,6 @@ def compile(
         _dspy()
     except Exception as exc:
         raise click.ClickException(str(exc)) from exc
-
-    settings = Settings()
-    client = _client(settings)
-    dataset = load_dataset(registration.dataset_path)
-    version = dataset_version(registration.dataset_path)
 
     click.echo(f"Compiling {app!r} with {OPTIMIZER_NAME} …")
     result = compile_program(

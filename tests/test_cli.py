@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from crucible.cli import main
+from crucible.cli import _load_run_context, main
 from crucible.core.settings import Settings
 from crucible.llm.usage import Result, TokenUsage
 from crucible.registry import AppRegistration
@@ -86,3 +86,32 @@ def test_evaluate_program_passes_program_path_to_build_adapter(
 
     assert result.exit_code == 0, result.output
     assert received["program_path"] == str(program)
+
+
+def test_load_run_context_returns_expected_shape(
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = StubLLMClient()
+    monkeypatch.setattr("crucible.cli._client", lambda settings: client)
+    monkeypatch.setattr("crucible.cli.get_registration", lambda app: _registration())
+
+    calls: list[tuple[str, Path]] = []
+    monkeypatch.setattr(
+        "crucible.cli.load_dataset",
+        lambda path: calls.append(("load_dataset", path)) or [],
+    )
+    monkeypatch.setattr(
+        "crucible.cli.dataset_version",
+        lambda path: calls.append(("dataset_version", path)) or "v1",
+    )
+
+    registration, settings, client_out, dataset, version = _load_run_context("extraction")
+
+    assert registration.dataset_path == DATASET_PATH
+    assert isinstance(settings, Settings)
+    assert client_out is client
+    assert dataset == []
+    assert version == "v1"
+    assert ("load_dataset", DATASET_PATH) in calls
+    assert ("dataset_version", DATASET_PATH) in calls
