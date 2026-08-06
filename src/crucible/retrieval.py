@@ -83,3 +83,14 @@ def retrieve_snippets(
 ) -> list[str]:
     """Return up to `top_k` corpus snippets best matching the question (hybrid)."""
     return [s for _, s in retrieve_snippets_indexed(question, corpus, top_k)]
+
+
+def format_snippet_block(snippets: list[str], labels: list[int] | None = None) -> str:
+    """Format snippets as a labeled block for LLM prompts.
+
+    Labels default to 1-based ordinals; pass explicit `labels` (e.g. corpus
+    indices) to label snippets differently.
+    """
+    if labels is None:
+        labels = list(range(1, len(snippets) + 1))
+    return "\n\n".join(f"[snippet {label}] {snippet}" for label, snippet in zip(labels, snippets))

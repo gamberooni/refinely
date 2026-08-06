@@ -7,19 +7,14 @@ from pathlib import Path
 from crucible.core.exceptions import EvalError
 from crucible.core.settings import Settings
 from crucible.dspy._imports import _dspy
-from crucible.dspy.bridge import (
-    example_case,
-    make_dspy_metric,
-    prediction_result,
-    score_result,
-)
+from crucible.dspy.adapter import CompiledProgramAdapter
+from crucible.dspy.bridge import make_dspy_metric
 from crucible.dspy.lm import configure_lm
 from crucible.dspy.spec import DspyProgramSpec
 from crucible.eval.datasets import EvalCase
-from crucible.eval.metrics import Metric, aggregate_scores
+from crucible.eval.metrics import Metric
 from crucible.eval.runner import EvaluationRunner
 from crucible.llm.client import LLMClient
-from crucible.llm.usage import Result
 from crucible.registry import get_registration, registered_apps
 
 TRAIN_FRACTION = 0.7
@@ -79,8 +74,8 @@ def compile_program(
 ) -> CompileResult:
     """Compile an app's DSPy program with BootstrapFewShot and score it on val.
 
-    Baseline (app's registered default config via `EvaluationRunner`) and
-    compiled (program predictions via the metric bridge) are both scored on the
+    Baseline (app's registered default config) and compiled (program wrapped in
+    `CompiledProgramAdapter`) are both scored through `EvaluationRunner` on the
     same validation split so the artifact's improvement is measurable.
     """
     dspy = _dspy()
@@ -105,7 +100,6 @@ def compile_program(
 
     train, val = _split_train_val(dataset, max_examples=max_examples, seed=seed)
     trainset = [spec.prepare_example(case) for case in train]
-    val_examples = [spec.prepare_example(case) for case in val]
 
     runner = EvaluationRunner(metrics, app_name, weights=weights)
     baseline = runner.run(
@@ -125,13 +119,13 @@ def compile_program(
     )
     compiled = optimizer.compile(program, trainset=trainset)
 
-    all_scores: list[dict[str, float]] = []
-    for example in val_examples:
-        prediction = compiled(**dict(example.inputs()))
-        result: Result = prediction_result(spec, prediction)
-        scores, _ = score_result(example_case(example), result, metrics, weights)
-        all_scores.append(scores)
-    compiled_score = aggregate_scores(all_scores, weights)
+    compiled_result = runner.run(
+        val,
+        CompiledProgramAdapter(spec, compiled),
+        config=registration.default_config,
+        dataset_version=dataset_version,
+    )
+    compiled_score = compiled_result.aggregate_score
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)

@@ -105,17 +105,14 @@ class ExtractionApp:
         self._field_name = field_name
         self._dspy_program: Any = None
         if program_path is not None:
-            from crucible.dspy._imports import _dspy
-            from crucible.dspy.lm import configure_lm
+            from crucible.dspy.load import load_program
 
-            _dspy()
-            program = _extraction_dspy_factory(self._settings).build()
-            program.load(program_path)
-            configure_lm(
+            self._dspy_program = load_program(
+                _extraction_dspy_factory(self._settings),
+                program_path,
                 self._settings,
                 temperature=EXTRACTION_DEFAULT_CONFIG.get("temperature", 0.0),
             )
-            self._dspy_program = program
 
     def execute(self, input: dict, config: dict) -> Result:
         temperature = float(config.get("temperature", 0.0))
