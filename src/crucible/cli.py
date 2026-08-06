@@ -288,7 +288,12 @@ def compile(
     type=int,
     help="Page of run history to show (1-based, newest first).",
 )
-def show(app: str, run_id: str | None, limit: int, page: int) -> None:
+@click.option(
+    "--pager",
+    is_flag=True,
+    help="Pipe output through the system pager (less) for scrolling.",
+)
+def show(app: str, run_id: str | None, limit: int, page: int, pager: bool) -> None:
     """Show APP's run history, best summaries, or a run's per-case results."""
     registration = get_registration(app)
     settings = Settings()
@@ -297,11 +302,27 @@ def show(app: str, run_id: str | None, limit: int, page: int) -> None:
         if run_id is not None:
             if not db.run_exists(run_id):
                 raise click.ClickException(f"Run {run_id!r} not found for app {app!r}")
-            console.print(cases_table(db.case_results_for_run(run_id)))
+            cases = db.case_results_for_run(run_id)
+            if pager:
+                with console.pager(styles=True):
+                    console.print(cases_table(cases))
+            else:
+                console.print(cases_table(cases))
             return
         total = db.count_runs(registration.name)
         if total == 0:
             console.print(f"No runs recorded for app {app!r}.")
+            return
+        if pager:
+            runs = db.list_runs(registration.name, limit=total)
+            best_run = db.best_run(registration.name)
+            best_compile = db.best_compile(registration.name)
+            with console.pager(styles=True):
+                console.print(runs_table(runs))
+                if best_run is not None:
+                    console.print(best_run_panel(best_run))
+                if best_compile is not None:
+                    console.print(best_compile_panel(best_compile))
             return
         offset = (page - 1) * limit
         if offset >= total:
@@ -343,7 +364,12 @@ def show(app: str, run_id: str | None, limit: int, page: int) -> None:
     type=int,
     help="Max number of runs per compare page.",
 )
-def compare(app: str, baseline: str | None, page: int, page_size: int) -> None:
+@click.option(
+    "--pager",
+    is_flag=True,
+    help="Pipe output through the system pager (less) for scrolling.",
+)
+def compare(app: str, baseline: str | None, page: int, page_size: int, pager: bool) -> None:
     """Compare APP's runs with per-metric deltas against a baseline."""
     registration = get_registration(app)
     settings = Settings()
@@ -355,6 +381,14 @@ def compare(app: str, baseline: str | None, page: int, page_size: int) -> None:
             return
         if baseline is not None and not db.run_exists(baseline):
             raise click.ClickException(f"Baseline run {baseline!r} not found for app {app!r}")
+        baseline_run = db.get_run(baseline) if baseline is not None else None
+        if pager:
+            runs = db.list_runs(registration.name, limit=total)
+            with console.pager(styles=True):
+                console.print(
+                    compare_table(list(reversed(runs)), baseline_run=baseline_run)
+                )
+            return
         if (page - 1) * page_size >= total:
             raise click.ClickException(
                 f"Page {page} is out of range for app {app!r} (only {total} runs)."
@@ -362,7 +396,6 @@ def compare(app: str, baseline: str | None, page: int, page_size: int) -> None:
         offset = max(0, total - page * page_size)
         limit = min(page_size, total - (page - 1) * page_size)
         runs = db.list_runs(registration.name, limit=limit, offset=offset)
-        baseline_run = db.get_run(baseline) if baseline is not None else None
         console.print(compare_table(list(reversed(runs)), baseline_run=baseline_run))
         pages = math.ceil(total / page_size)
         if pages > 1:

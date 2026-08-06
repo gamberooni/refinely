@@ -409,6 +409,41 @@ def test_compare_without_runs_prints_message(
     assert "No runs recorded for app 'extraction'" in result.output
 
 
+def test_show_pager_pipes_all_runs(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("crucible.cli.get_registration", lambda app: _registration())
+    run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.01 * i for i in range(60)])
+
+    result = _invoke(["show", "extraction", "--pager"])
+
+    assert result.exit_code == 0, result.output
+    assert run_ids[0][:8] in result.output
+    assert run_ids[59][:8] in result.output
+    assert "page 2 of 6" not in result.output
+
+
+def test_compare_pager_pipes_all_runs(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("crucible.cli.get_registration", lambda app: _registration())
+    run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.01 * i for i in range(60)])
+
+    result = _invoke(["compare", "extraction", "--pager"])
+
+    assert result.exit_code == 0, result.output
+    assert run_ids[0][:8] in result.output
+    assert run_ids[59][:8] in result.output
+    assert "(baseline)" in result.output
+    assert "page 2 of 6" not in result.output
+
+
 def test_export_csv_writes_file_and_echoes_path(
     tmp_path: Path,
     _hermetic_settings: None,
