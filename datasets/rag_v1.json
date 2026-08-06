@@ -1,0 +1,99 @@
+{
+  "version": "rag_v1",
+  "corpus": [
+    "The capital of France is Paris, a city on the Seine river.",
+    "The Eiffel Tower in Paris was completed in 1889 and is 330 meters tall.",
+    "Python is a general-purpose programming language created by Guido van Rossum.",
+    "SQLite is an embedded, serverless SQL database engine written in C.",
+    "The Pacific Ocean is the largest and deepest ocean on Earth.",
+    "Optuna is an automatic hyperparameter optimization software framework.",
+    "Tokyo is the capital of Japan and one of the largest cities in the world.",
+    "Tenacity is a Python library for adding retry behavior to function calls.",
+    "Pandas is a Python library for data manipulation and analysis.",
+    "The Great Barrier Reef is located off the coast of Queensland, Australia.",
+    "Mount Fuji is the highest mountain in Japan, standing at 3776 meters.",
+    "The Nile is the longest river in the world, flowing through northeastern Africa."
+  ],
+  "cases": [
+    {
+      "id": "rag-001",
+      "input": {"question": "What is the capital of France and how tall is the Eiffel Tower?"},
+      "expected": {
+        "answer": "The capital of France is Paris, and the Eiffel Tower is 330 meters tall.",
+        "source_indices": [0, 1]
+      }
+    },
+    {
+      "id": "rag-002",
+      "input": {"question": "Which ocean is the largest and deepest on Earth, and off which coast is the Great Barrier Reef?"},
+      "expected": {
+        "answer": "The Pacific Ocean is the largest and deepest ocean, and the Great Barrier Reef is off the coast of Queensland, Australia.",
+        "source_indices": [4, 9]
+      }
+    },
+    {
+      "id": "rag-003",
+      "input": {"question": "Who created the Python programming language, and which library adds retry behavior to function calls?"},
+      "expected": {
+        "answer": "Python was created by Guido van Rossum, and Tenacity adds retry behavior to function calls.",
+        "source_indices": [2, 7]
+      }
+    },
+    {
+      "id": "rag-004",
+      "input": {"question": "What is Tokyo the capital of, and which is the highest mountain in Japan?"},
+      "expected": {
+        "answer": "Tokyo is the capital of Japan, and Mount Fuji is the highest mountain in Japan at 3776 meters.",
+        "source_indices": [6, 10]
+      }
+    },
+    {
+      "id": "rag-005",
+      "input": {"question": "Which database engine is embedded and serverless, and what is Optuna used for?"},
+      "expected": {
+        "answer": "SQLite is an embedded, serverless database engine, and Optuna is an automatic hyperparameter optimization framework.",
+        "source_indices": [3, 5]
+      }
+    },
+    {
+      "id": "rag-006",
+      "input": {"question": "Where does the Seine river flow through, and when was the Eiffel Tower completed?"},
+      "expected": {
+        "answer": "The Seine flows through Paris, and the Eiffel Tower was completed in 1889.",
+        "source_indices": [0, 1]
+      }
+    },
+    {
+      "id": "rag-007",
+      "input": {"question": "Which library adds retry behavior, and which Python library is used for data analysis?"},
+      "expected": {
+        "answer": "Tenacity adds retry behavior to function calls, and Pandas is used for data manipulation and analysis.",
+        "source_indices": [7, 8]
+      }
+    },
+    {
+      "id": "rag-008",
+      "input": {"question": "Which river is the longest in the world, and how tall is Mount Fuji?"},
+      "expected": {
+        "answer": "The Nile is the longest river in the world, and Mount Fuji is 3776 meters tall.",
+        "source_indices": [11, 10]
+      }
+    },
+    {
+      "id": "rag-009",
+      "input": {"question": "Which city on the Seine river is the capital of France, and what is the capital of Japan?"},
+      "expected": {
+        "answer": "Paris, on the Seine, is the capital of France, and Tokyo is the capital of Japan.",
+        "source_indices": [0, 6]
+      }
+    },
+    {
+      "id": "rag-010",
+      "input": {"question": "What is the highest mountain in Japan, and which ocean is the deepest?"},
+      "expected": {
+        "answer": "Mount Fuji is the highest mountain in Japan, and the Pacific Ocean is the deepest ocean.",
+        "source_indices": [10, 4]
+      }
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+[project]
+name = "crucible"
+version = "0.1.0"
+description = "Minimal AI application evaluation & optimization prototype"
+readme = "README.md"
+authors = [
+    { name = "gamberooni", email = "zhaoyoong@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "openai",
+    "pydantic>=2",
+    "pydantic-settings",
+    "tenacity",
+    "optuna",
+    "click",
+]
+
+[project.scripts]
+crucible = "crucible.cli:main"
+
+[project.entry-points."crucible.apps"]
+extraction = "apps.extraction"
+qa = "apps.qa"
+rag = "apps.rag"
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+dspy = [
+    "dspy>=3.1",
+    "litellm<1.92",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/crucible", "apps"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = ["I"]

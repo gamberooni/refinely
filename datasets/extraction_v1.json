@@ -1,0 +1,85 @@
+{
+  "version": "extraction_v1",
+  "cases": [
+    {
+      "id": "ext-001",
+      "input": {
+        "text": "I absolutely love this new laptop, it's fantastic!",
+        "field": "sentiment"
+      },
+      "expected": {"field_name": "sentiment", "field_value": "positive"}
+    },
+    {
+      "id": "ext-002",
+      "input": {
+        "text": "The customer service was terrible and the wait was endless.",
+        "field": "sentiment"
+      },
+      "expected": {"field_name": "sentiment", "field_value": "negative"}
+    },
+    {
+      "id": "ext-003",
+      "input": {
+        "text": "It works as expected, nothing special to complain about.",
+        "field": "sentiment"
+      },
+      "expected": {"field_name": "sentiment", "field_value": "neutral"}
+    },
+    {
+      "id": "ext-004",
+      "input": {
+        "text": "Amazing experience, I will definitely recommend this to friends.",
+        "field": "sentiment"
+      },
+      "expected": {"field_name": "sentiment", "field_value": "positive"}
+    },
+    {
+      "id": "ext-005",
+      "input": {
+        "text": "This product is disappointing and overpriced.",
+        "field": "sentiment"
+      },
+      "expected": {"field_name": "sentiment", "field_value": "negative"}
+    },
+    {
+      "id": "ext-006",
+      "input": {
+        "text": "Invoice #1042 dated March 3 totals $249.99 for the premium plan.",
+        "field": "invoice_total"
+      },
+      "expected": {"field_name": "invoice_total", "field_value": "$249.99"}
+    },
+    {
+      "id": "ext-007",
+      "input": {
+        "text": "The final amount due on invoice #218 is 1,250.00 dollars.",
+        "field": "invoice_total"
+      },
+      "expected": {"field_name": "invoice_total", "field_value": "1,250.00"}
+    },
+    {
+      "id": "ext-008",
+      "input": {
+        "text": "Our total for the catering order came to $75.50 including tax.",
+        "field": "invoice_total"
+      },
+      "expected": {"field_name": "invoice_total", "field_value": "$75.50"}
+    },
+    {
+      "id": "ext-009",
+      "input": {
+        "text": "I feel okay about the purchase, it does its job.",
+        "field": "sentiment"
+      },
+      "expected": {"field_name": "sentiment", "field_value": "neutral"}
+    },
+    {
+      "id": "ext-010",
+      "input": {
+        "text": "Worst app I have ever used, it crashes every five minutes.",
+        "field": "sentiment"
+      },
+      "expected": {"field_name": "sentiment", "field_value": "negative"}
+    }
+  ]
+}

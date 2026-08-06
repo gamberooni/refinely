@@ -1,0 +1,67 @@
+{
+  "version": "qa_v1",
+  "corpus": [
+    "The capital of France is Paris, a city on the Seine river.",
+    "Python is a general-purpose programming language created by Guido van Rossum.",
+    "SQLite is an embedded, serverless SQL database engine written in C.",
+    "The Eiffel Tower in Paris was completed in 1889 and is 330 meters tall.",
+    "Optuna is an automatic hyperparameter optimization software framework.",
+    "The Pacific Ocean is the largest and deepest ocean on Earth.",
+    "Pandas is a Python library for data manipulation and analysis.",
+    "Tokyo is the capital of Japan and one of the largest cities in the world.",
+    "Tenacity is a Python library for adding retry behavior to function calls.",
+    "The Great Barrier Reef is located off the coast of Queensland, Australia."
+  ],
+  "cases": [
+    {
+      "id": "qa-001",
+      "input": {"question": "What is the capital of France?"},
+      "expected": "Paris"
+    },
+    {
+      "id": "qa-002",
+      "input": {"question": "Who created the Python programming language?"},
+      "expected": "Guido van Rossum"
+    },
+    {
+      "id": "qa-003",
+      "input": {"question": "What is SQLite?"},
+      "expected": "embedded SQL database engine"
+    },
+    {
+      "id": "qa-004",
+      "input": {"question": "How tall is the Eiffel Tower?"},
+      "expected": "330 meters"
+    },
+    {
+      "id": "qa-005",
+      "input": {"question": "What does Optuna do?"},
+      "expected": "automatic hyperparameter optimization"
+    },
+    {
+      "id": "qa-006",
+      "input": {"question": "Which ocean is the largest on Earth?"},
+      "expected": "Pacific Ocean"
+    },
+    {
+      "id": "qa-007",
+      "input": {"question": "What is the capital of Japan?"},
+      "expected": "Tokyo"
+    },
+    {
+      "id": "qa-008",
+      "input": {"question": "What is Tenacity used for?"},
+      "expected": "adding retry behavior"
+    },
+    {
+      "id": "qa-009",
+      "input": {"question": "What is Pandas?"},
+      "expected": "data manipulation and analysis"
+    },
+    {
+      "id": "qa-010",
+      "input": {"question": "Where is the Great Barrier Reef located?"},
+      "expected": "Queensland, Australia"
+    }
+  ]
+}
