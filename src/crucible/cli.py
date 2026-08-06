@@ -43,7 +43,20 @@ def evaluate(app: str, program: str | None) -> None:
     dataset = load_dataset(registration.dataset_path)
     version = dataset_version(registration.dataset_path)
 
-    app_obj = registration.build_adapter(client, settings, program_path=program)
+    if program is not None and registration.dspy_factory is None:
+        supporting = ", ".join(
+            name for name in registered_apps() if get_registration(name).dspy_factory is not None
+        )
+        raise click.ClickException(
+            f"App {app!r} does not declare a DSPy program. "
+            f"Apps that support programs: {supporting or 'none'}"
+        )
+
+    app_obj = (
+        registration.build_adapter(client, settings, program_path=program)
+        if registration.dspy_factory is not None
+        else registration.build_adapter(client, settings)
+    )
     runner = EvaluationRunner(registration.metrics_factory(client, settings), app)
     result = runner.run(
         dataset,
