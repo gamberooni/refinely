@@ -1,7 +1,8 @@
 # dspy-compilation Specification
 
 ## Purpose
-TBD - created by archiving change dspy-compile-pipeline. Update Purpose after archive.
+
+Optional DSPy integration: per-app `dspy_factory` program declaration, a `BootstrapFewShot` compile harness that scores predictions through the app's registered metrics, and consumption of compiled artifacts via `build_adapter(program_path=...)` at evaluate time. (Adapted from change `dspy-compile-pipeline`.)
 ## Requirements
 ### Requirement: Per-app DSPy program declaration
 The system SHALL support an optional `dspy_factory` field on app registrations, a callable `dspy_factory(settings)` returning a `DspyProgramSpec` that provides a fresh uncompiled `dspy.Module` builder, an example preparer, and a prediction-to-output mapper. Apps without a `dspy_factory` SHALL remain fully supported for evaluation and Optuna optimization.

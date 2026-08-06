@@ -1,12 +1,12 @@
 import pytest
 
+from apps.common import retrieve_snippets, retrieve_snippets_indexed
 from apps.extraction import ExactMatchMetric, ExtractionApp
 from apps.qa import QAApp
 from apps.rag import CitationAccuracyMetric, RetrievalRecallMetric
 from crucible.core.exceptions import EvalError
 from crucible.eval.datasets import EvalCase
 from crucible.llm.usage import Result, TokenUsage
-from crucible.retrieval import retrieve_snippets, retrieve_snippets_indexed
 from tests.stub_llm import StubLLMClient
 
 CORPUS = [

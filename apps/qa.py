@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from apps.common import format_snippet_block, retrieve_snippets
 from crucible.core.exceptions import EvalError
 from crucible.core.settings import Settings
 from crucible.dspy.bridge import CASE_ATTR
@@ -20,7 +21,6 @@ from crucible.eval.metrics import (
 from crucible.llm.client import LLMClient
 from crucible.llm.usage import Result, TokenUsage
 from crucible.registry import AppRegistration, register_app
-from crucible.retrieval import format_snippet_block, retrieve_snippets
 
 DATASET_PATH = Path(__file__).resolve().parents[1] / "datasets" / "qa_v1.json"
 
@@ -96,7 +96,7 @@ class QAApp:
         ]
 
         start = time.perf_counter()
-        response, usage = asyncio.run(
+        completion = asyncio.run(
             self._client.chat_structured(
                 self._settings.model_name,
                 messages,
@@ -104,6 +104,8 @@ class QAApp:
                 temperature=temperature,
             )
         )
+        response = completion.content
+        usage = completion.token_usage
         latency = time.perf_counter() - start
 
         return Result(

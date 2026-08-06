@@ -163,7 +163,9 @@ class LLMJudgeMetric:
         ]
 
         try:
-            text, _ = asyncio.run(self._client.chat_text(self._model, messages, temperature=0.0))
+            text = asyncio.run(
+                self._client.chat_text(self._model, messages, temperature=0.0)
+            ).content
             rating = self._parse_rating(text)
         except Exception as e:
             raise EvalError(f"LLM judge failed for case {case.id}: {e}") from e

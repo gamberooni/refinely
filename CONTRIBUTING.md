@@ -11,7 +11,7 @@ Crucible is a minimal prototype for evaluating and optimizing LLM application co
 3. Records every run — including per-case inputs, outputs, expected values, and scores — into a SQLite lineage database.
 4. Uses Optuna (TPE sampler) to search a per-app configuration space, recording each trial into the same SQLite database so runs and trials are directly comparable.
 
-The project was built as a greenfield, spec-driven prototype via OpenSpec (see `openspec/` — the first change is archived under `openspec/changes/archive/`, and the resulting capability specs live in `openspec/specs/`). It is intentionally small: three toy apps, real LLM calls, and a deliberately simple architecture that makes the evaluation/optimization loop easy to trace end to end.
+The project was built as a greenfield, spec-driven prototype via OpenSpec (see `openspec/` — completed changes are archived under `openspec/changes/archive/`, and the resulting capability specs live in `openspec/specs/`). It is intentionally small: three toy apps, real LLM calls, and a deliberately simple architecture that makes the evaluation/optimization loop easy to trace end to end.
 
 The intended consumer is the CLI. There is no HTTP server, no web UI, and no library API contract — apps plug in as plain objects with `execute(input, config) -> Result` (duck-typed, no protocol class) plus a `register_app` registration, so new applications can be added without touching the evaluation machinery.
 
@@ -28,7 +28,7 @@ The intended consumer is the CLI. There is no HTTP server, no web UI, and no lib
 uv sync --group dev
 ```
 
-This creates `.venv/`, installs runtime dependencies (`openai`, `pydantic`, `pydantic-settings`, `tenacity`, `optuna`, `click`) plus the dev group (`pytest`), and installs the package itself in editable-ish form so the `crucible` console script is available via `uv run`.
+This creates `.venv/`, installs runtime dependencies (`openai`, `pydantic`, `pydantic-settings`, `tenacity`, `optuna`, `click`, `sqlalchemy>=2.0`, `rich`) plus the dev group (`pytest`), and installs the package itself in editable-ish form so the `crucible` console script is available via `uv run`.
 
 ### Configure the environment
 
@@ -45,7 +45,7 @@ The variables are documented in [Configuration System](#configuration-system) be
 ### Verify setup
 
 ```bash
-uv run pytest tests/ -q    # expect: 119 passed, no network calls
+uv run pytest tests/ -q    # expect: 247 passed, no network calls
 uv run crucible --help     # CLI renders
 ```
 
@@ -54,11 +54,11 @@ uv run crucible --help     # CLI renders
 ### Test
 
 ```bash
-uv run pytest tests/ -q              # full suite (119 tests, ~1s, no live API)
+uv run pytest tests/ -q              # full suite (247 tests, ~1s, no live API)
 uv run pytest tests/test_metrics.py -q   # one file
 ```
 
-There is no linter, formatter, or type checker configured (no ruff/black/mypy in `pyproject.toml`, no CI). The closest thing to a gate is the test suite plus `uv run pytest` — keep it green.
+Linting is ruff (`[tool.ruff] line-length = 100`, `extend-select = ["I"]` for import sorting in `pyproject.toml`). There is no CI gate, so keep both the test suite and `uv run ruff check src apps tests` green before committing.
 
 ### Run the CLI
 
@@ -73,8 +73,11 @@ uv run crucible optimize rag --trials 3
 uv run crucible compile extraction --max-examples 20
 ```
 
-- `evaluate <app>` runs the app's registered default config (`register_app` in `apps/*.py`) over its dataset and records one lineage run.
-- `optimize <app> [--trials N]` runs an Optuna study (default 15 trials) and records one lineage run per trial.
+- `evaluate <app>` runs the app's registered default config (`register_app` in `apps/*.py`) over its dataset and records one lineage run. `--config <name|json>` uses a stored config (`configs/<app>/<name>.json`) or an inline JSON object (merged over the app's defaults; no `--config` uses the per-app default pointer). `--model <name>` overrides the app model only (the judge stays on `settings.model_name`); `--models a,b,c` fans out to one recorded run per model. `--tags a,b` tags the run.
+- `optimize <app> [--trials N]` runs an Optuna study (default 15 trials), records one lineage run per trial, and auto-saves the best trial's config to `configs/<app>/opt-best.json`.
+- Named configs are managed via the `config` group: `config save <name> --app <app> --config '{"..."}'`, `config list`, `config show <name> --app`, `config rm <name> --app`, `config default <app> --set <name>|--clear`.
+- Read-back: `show`/`compare`/`export` accept `--tag` to filter; `compare` adds `--diff-config` (config delta vs. baseline) and `--cases` (per-case broke/fixed/unchanged drilldown); `show --run` renders persisted per-case errors + an "N cases errored" line.
+- Developer tooling: `new app <name>` scaffolds `apps/<name>.py` + `datasets/<name>_v1.json` (prints the pyproject entry point to add, never edits `pyproject.toml`); `doctor` runs deterministic health checks (`--network` adds a gateway probe); `dataset stats <app>` reports case counts, shapes, and malformed cases.
 
 ### Makefile
 
@@ -89,31 +92,49 @@ make clean                   # removes .pytest_cache, .coverage, __pycache__, an
 ## Project Layout
 
 ```
-pyproject.toml               # deps, [project.scripts] crucible, [project.entry-points."crucible.apps"], hatchling, pytest config
+pyproject.toml               # deps, [project.scripts] crucible, [project.entry-points."crucible.apps"], hatchling, ruff, pytest config
 apps/                        # demo apps — sibling of src/, outside the crucible package
   __init__.py                # imports demo app modules (registration side effects)
+  common.py                  # generic keyword/hybrid retrieval (retrieve_snippets, retrieve_snippets_indexed), shared by QA + RAG
   extraction.py              # ExtractionApp + ExactMatchMetric + search space/defaults/weights (register_app)
   qa.py                      # QAApp + search space/defaults/weights (register_app)
   rag.py                     # RAGApp pipeline + retrieval/citation metrics + search space/defaults/weights (register_app)
+configs/                     # named configs as JSON files: configs/<app>/<name>.json + opt-best.json + .default pointer
 src/crucible/
-  cli.py                     # click group: evaluate / optimize / compile subcommands (registry-driven)
+  cli/                       # CLI package (click group): main + subcommand modules
+    __init__.py              # main group, discover_apps, submodule imports, re-exports _load_run_context
+    context.py               # shared helpers (_client, _load_run_context, _resolve_run_id, _format_counts) — call-time monkeypatch seam
+    evaluate.py              # evaluate (+ _resolve_config, _run_evaluation)
+    optimize.py              # optimize
+    compile.py               # compile
+    config_cmds.py           # config group: save / list / show / rm / default
+    readback.py              # show / compare / export (+ _compare_pair, _compare_diff_config, _compare_cases)
+    devtools.py              # new app / doctor / dataset
+    __main__.py              # python -m crucible.cli support
+  config.py                  # named config storage: configs/<app>/<name>.json, .default pointer, opt-best (ConfigError)
   registry.py                # AppRegistration + register_app / get_registration / registered_apps / discover_apps
-  retrieval.py               # generic keyword/hybrid retrieval (retrieve_snippets, retrieve_snippets_indexed)
+  devtools/
+    scaffold.py              # write_app — templates for apps/<name>.py + dataset stub (ScaffoldError)
+    doctor.py                # CheckResult + run_checks (apps/datasets/schema/env + opt-in network) — no network by default
   core/
-    exceptions.py            # CrucibleError base; LLMError, EvalError
+    exceptions.py            # CrucibleError base; LLMError, EvalError (module-specific subclasses like ConfigError/ScaffoldError live with their domain code)
     settings.py              # pydantic-settings, CRUCIBLE_ env prefix, .env loading
   llm/
     client.py                # AsyncOpenAIClient: chat_text / chat_structured
     usage.py                 # TokenUsage model (prompt/completion tokens)
   eval/
-    datasets.py              # EvalCase model, load_dataset, load_corpus, dataset_version
+    datasets.py              # EvalCase model, load_dataset, load_corpus, dataset_version, dataset_stats (DatasetStats)
     metrics.py               # generic metrics (fuzzy, llm_judge, latency, cost), Metric, aggregate_scores
     runner.py                # EvaluationRunner, CaseResult, EvaluationRunResult
   optimize/
     objective.py             # build_objective — wraps eval + lineage in a trial (registry defaults)
     study.py                 # run_study — create/resume + optimize
   tracking/
-    db.py                    # LineageDB — SQLite schema + record/query helpers (evaluation_runs + dspy_compiles)
+    db.py                    # LineageDB — SQLAlchemy Core schema + record/query helpers (evaluation_runs + dspy_compiles)
+    models.py                # EvaluationRun / CompileRecord / CaseRecord pydantic read models
+  reporting/
+    render.py                # runs_table / cases_table / compare_table / case_pair_table / config_delta / best-run + best-compile panels
+    export.py                # export_runs_csv / export_runs_json
   dspy/
     spec.py                  # DspyProgramSpec dataclass (build / prepare_example / prediction_to_output)
     bridge.py                # metric bridge (example_case, make_dspy_metric, score_result)
@@ -130,7 +151,7 @@ tests/
 openspec/                    # OpenSpec changes (archive/) and main capability specs (specs/)
 ```
 
-Organizing principle: `src/crucible/` mirrors the evaluation pipeline — the app layer (what gets evaluated), the eval layer (how it's scored), the optimize layer (how configs are searched), and the tracking layer (where everything lands). Apps are duck-typed objects (`execute(input, config) -> Result`, no protocol class); metrics are decoupled from the runner via the `Metric` protocol. Each app bundles its metric set, weights, search space, and default config into an `AppRegistration` via `register_app` (`registry.py`), and apps are discovered through entry points in group `crucible.apps` (`discover_apps`), so the framework core stays app-agnostic and apps can live outside the crucible repo.
+Organizing principle: `src/crucible/` mirrors the evaluation pipeline — the app layer (what gets evaluated), the eval layer (how it's scored), the optimize layer (how configs are searched), and the tracking layer (where everything lands). Apps are duck-typed objects (`execute(input, config) -> Result`, no protocol class); metrics are decoupled from the runner via the `Metric` protocol. Each app bundles its metric set, weights, search space, and default config into an `AppRegistration` via `register_app` (`registry.py`), and apps are discovered through entry points in group `crucible.apps` (`discover_apps`), so the framework core stays app-agnostic and apps can live outside the crucible repo. Named configs are versionable JSON files under `configs/` (cwd-relative, like `datasets/`), managed by the `config` CLI group through the storage API in `config.py`.
 
 ## Architecture
 
@@ -158,8 +179,8 @@ CLI ──┬─────► evaluate: ──► EvaluationRunner ──► a
 
 - **Apps** (duck-typed, no protocol class) — any object exposing `execute(input: dict, config: dict) -> Result`. This is the seam where new applications plug in. `Result` (`llm/usage.py`) carries `output` (dict or str), `token_usage`, and `latency_seconds`.
 - **`Metric`** (`eval/metrics.py`) — Protocol: `evaluate(case, output) -> MetricResult`. The framework ships four generic implementations (fuzzy match, LLM judge, latency, cost); app-specific metrics (exact match, retrieval recall, citation accuracy) live in the app modules that register them. A failing metric scores 0.0 and never aborts the run. Retrieval metrics read `expected["source_indices"]` / `output["retrieved_indices"]` / `output["cited_indices"]`; any metric that treats `case.expected` as text (fuzzy, judge) must use the `_expected_text` helper, because RAG expectations are dicts.
-- **`EvaluationRunner`** (`eval/runner.py`) — the per-case execution loop. Any `app.execute` failure is caught per case, the case is recorded with `error` set (in memory only) and zero scores, and the run continues.
-- **`LineageDB`** (`tracking/db.py`) — a thin sqlite3 wrapper. Tables: `evaluation_runs` (run_id, app, dataset version, JSON config, optuna trial number, aggregate score), `metric_results`, `case_results`, and `dspy_compiles` (compile_id, optimizer, baseline/compiled scores, artifact path). Schema creation is idempotent and deliberately coexists with Optuna's own tables in the same SQLite file.
+- **`EvaluationRunner`** (`eval/runner.py`) — the per-case execution loop. Any `app.execute` failure is caught per case, the case is recorded with `error` set and zero scores, and the run continues. Errors are persisted on `case_results.error` (nullable; clean cases are `NULL`).
+- **`LineageDB`** (`tracking/db.py`) — SQLAlchemy Core over a SQLite file. Tables: `evaluation_runs` (run_id, app, dataset version, JSON config, model_name, tags, optuna trial number, aggregate score), `metric_results`, `case_results` (incl. nullable `error` column), and `dspy_compiles` (compile_id, optimizer, baseline/compiled scores, artifact path). Schema creation is idempotent, deliberately coexists with Optuna's own tables in the same SQLite file, and upgrades are additive only: `_backfill_columns` runs guarded `ALTER TABLE ... ADD COLUMN` for columns added since the DB was created (`model_name`, `tags`, `error`, `metric_scores`) — never drop/recreate.
 - **`build_objective`** (`optimize/objective.py`) — the bridge between Optuna and evaluation: samples a config from the trial, runs the evaluation, records lineage with the trial number, returns the aggregate score.
 - **`DspyProgramSpec`** (`dspy/spec.py`) — declares a DSPy program per app: three callables (`build`, `prepare_example`, `prediction_to_output`). Apps that set `dspy_factory` on their `AppRegistration` return one of these. `compile_program` (`dspy/compile.py`) uses it to run `BootstrapFewShot` against the app's registered metrics (via the metric bridge in `dspy/bridge.py`) and saves the compiled artifact JSON. The DSPy group is optional (`uv sync --group dspy`); `_dspy()` (`dspy/_imports.py`) is a lazy helper that raises a clear `EvalError` if dspy is absent.
 
@@ -180,7 +201,7 @@ All runtime configuration flows through `Settings` (`core/settings.py`), a pydan
 |---|---|---|---|---|
 | `CRUCIBLE_OPENAI_API_KEY` | str | falls back to `OPENAI_API_KEY` env var, else `""` | for real runs | API key for the LLM provider |
 | `CRUCIBLE_BASE_URL` | str | `None` | no | OpenAI-compatible base URL; use for a local gateway (e.g. `http://localhost:4000/v1`) |
-| `CRUCIBLE_MODEL_NAME` | str | `deepseek-v4-flash` | no | Model used for app calls and LLM judging |
+| `CRUCIBLE_MODEL_NAME` | str | `deepseek-v4-flash` | no | Default model for app calls and LLM judging; per-run override via `evaluate|optimize --model` (judge is unaffected) |
 | `CRUCIBLE_LINEAGE_DB_PATH` | str (path) | `lineage.db` | no | SQLite file for lineage + Optuna storage (cwd-relative) |
 
 Precedence: explicit `CRUCIBLE_*` env vars beat `.env` file values, which beat class defaults; `OPENAI_API_KEY` is only consulted when `CRUCIBLE_OPENAI_API_KEY` is unset. The CLI refuses to construct a real client without a key (`CRUCIBLE_OPENAI_API_KEY is not set`), but tests never need one — they use `StubLLMClient`.
@@ -212,8 +233,8 @@ Keep `docs/integration.md` in sync when the public API surface changes.
 - **Python 3.11, typed**: all public functions carry annotations, pydantic v2 models (`BaseModel`) are used for structured data, and protocols are used for seams.
 - **Naming**: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_SNAKE_CASE` for module constants (price constants, budgets, `EXTRACTION_WEIGHTS`/`QA_WEIGHTS`/`RAG_WEIGHTS`, `SYSTEM_PROMPTS`).
 - **No code comments unless asked** — the project convention is that code should be self-explanatory; comments are added deliberately, not routinely.
-- **Exceptions**: a small hierarchy in `core/exceptions.py` (`CrucibleError` base; `LLMError` for client failures, `EvalError` for evaluation/data/optimize failures). Raise these rather than bare `Exception`s.
-- **Imports**: stdlib first, then third-party, then `crucible.*` — plain alphabetical within groups; no isort config, so match the existing grouping by eye.
+- **Exceptions**: a small hierarchy in `core/exceptions.py` (`CrucibleError` base; `LLMError` for client failures, `EvalError` for evaluation/data/optimize failures). Raise these rather than bare `Exception`s; module-specific subclasses (`ConfigError` in `config.py`, `ScaffoldError` in `devtools/scaffold.py`) live with their domain code, not in `core/exceptions.py`.
+- **Imports**: stdlib first, then third-party, then local (`apps.*`, `crucible.*`) — plain alphabetical within groups. ruff's `I` rule set (in `pyproject.toml`) enforces this; run `uv run ruff check src apps tests` to catch sorting drift.
 - **User-edited files**: `core/settings.py` defaults and `.env.example` are maintained by hand; treat them as user-owned and don't revert their values.
 
 ## Design Patterns & Techniques
@@ -226,10 +247,11 @@ Keep `docs/integration.md` in sync when the public API surface changes.
 
 ## Testing Strategy
 
-- **Runner**: pytest, 119 tests, no network access — every test uses `StubLLMClient` with canned responses. Run everything with `uv run pytest tests/ -q` from the repo root.
+- **Runner**: pytest, 247 tests, no network access — every test uses `StubLLMClient` with canned responses. Run everything with `uv run pytest tests/ -q` from the repo root.
 - **Location/naming**: `tests/test_<module>.py`, mirroring `src/crucible/`. Shared fixture code lives in `tests/stub_llm.py`; each test file defines its own local doubles (e.g. `_StubApp` in `test_runner.py`).
 - **Isolation**: tests are hermetic with respect to the repo's `.env`. The autouse fixture in `test_core_settings.py` does `monkeypatch.setitem(Settings.model_config, "env_file", None)` — note `setitem`, because `Settings.model_config` is a dict subclass and `setattr` fails. Other test files rely on the stub client and never construct real `Settings`-driven clients.
-- **What's covered**: settings loading (env, fallback, .env precedence), client text/structured paths and JSON extraction helpers, all three apps + retrieval (including the strategy switch and indexed variant), dataset loading + error paths, the generic metrics + weight aggregation, the app registry (round-trip, duplicate/unknown errors, search-space/default/weight consistency), the runner (including failure tolerance), lineage round-trips, Optuna objective/study (against a tmp_path SQLite file), and the DSPy harness (bridge, split, compile_program end-to-end with stubbed dspy module, lm wiring).
+- **What's covered**: settings loading (env, fallback, .env precedence), client text/structured paths and JSON extraction helpers, all three apps + shared retrieval in `apps/common.py` (including the strategy switch and indexed variant), dataset loading + error paths + `dataset_stats`, the generic metrics + weight aggregation, the app registry (round-trip, duplicate/unknown errors, search-space/default/weight consistency), the runner (including failure tolerance), lineage round-trips (incl. `model_name`/`tags`/`error` columns + guarded backfills), named-config storage + `config` CLI group, the CLI package commands (evaluate/optimize/show/compare/export incl. `--tag`/`--diff-config`/`--cases`), the developer tools (`new app` scaffold, `doctor`, `dataset stats`), Optuna objective/study (against a tmp_path SQLite file), and the DSPy harness (bridge, split, compile_program end-to-end with stubbed dspy module, lm wiring).
+- **CLI test seam**: commands resolve helpers through `crucible.cli.context.X(...)` at call time, so tests monkeypatch `crucible.cli.context._client`, `crucible.cli.context.get_registration`, `crucible.cli.context.run_study`, etc. — never the command module's own binding (e.g. `crucible.cli.devtools.run_checks` for doctor).
 - **Expensive tests**: the Optuna study test runs 3 trials × 10 cases against a stub — it takes a few seconds, which is fine, but be aware the suite isn't all sub-second.
 
 ## Gotchas & Sharp Edges
@@ -238,8 +260,8 @@ Keep `docs/integration.md` in sync when the public API surface changes.
 - **`monkeypatch.setitem`, not `setattr`**, for `Settings.model_config` — `model_config` is a dict subclass; `setattr` raises.
 - **`StubLLMClient` is queue-based**: a queue that runs dry raises. Count every LLM call (including judge calls) before constructing the stub.
 - **Optuna studies resume**: `run_study` uses `load_if_exists=True` with study names `crucible_{app}`. Re-running `optimize` continues the same study — trial numbers keep counting up and `best_trial` reflects the whole history. This is by design (lineage), not a bug.
-- **`case_results` has no error column** — per-case errors exist only in memory. If you need persisted per-case errors, that's a deliberate schema change.
-- **`lineage.db` is not gitignored** (only `.env` and `.venv` are). It accumulates real data at the repo root; `make clean` removes it. Don't commit it.
+- **Per-case errors are persisted**: `case_results.error` (nullable TEXT) holds per-case errors — clean cases are `NULL`. `show --run` renders the column and an "N cases errored" line. Schema upgrades are additive-only: `_backfill_columns` issues guarded `ALTER TABLE ... ADD COLUMN` for `model_name`/`tags`/`error`/`metric_scores` on pre-existing DBs; never drop or recreate tables (that would also clobber Optuna's tables in the same file).
+- **`lineage.db` is gitignored** (along with `.env`, `.venv`, `.opencode`). It accumulates real data at the repo root; `make clean` removes it. Don't commit it.
 - **The lineage DB may contain dead runs**: the manual verification era produced a few baseline runs scoring 0.0 (from a bad API key). Query with `ORDER BY created_at` and filter if you're comparing baselines.
 - **Scores are clamped to 0.0–1.0** by construction (weighted means of metric scores); the QA/RAG `fuzzy_match` and `llm_judge` scores run very close to 1.0 on the current datasets, so small deltas are noise — judge config quality by retrieval/citation/latency too. On the RAG dataset, `retrieval_recall` and `citation_accuracy` sit at 1.0 for the baseline (the deterministic matcher finds both sources and the gateway cites them), so their weight only bites when a config hurts retrieval.
 - **RAG stage toggles change LLM call counts**: `query_expansion` and `rerank` each add an LLM call per case (rerank only when retrieval returns >1 candidate). Stub queues in RAG tests must account for every stage call plus the judge call.

@@ -6,7 +6,7 @@ from crucible.llm.client import (
     _extract_json_from_prose,
     _strip_json_fences,
 )
-from crucible.llm.usage import TokenUsage
+from crucible.llm.usage import ChatResult, TokenUsage
 from tests.stub_llm import StubLLMClient
 
 
@@ -47,14 +47,14 @@ def test_stub_client_satisfies_protocol_and_returns_canned_usage() -> None:
 
     client: LLMClient = stub  # protocol conformance check
 
-    model, usage = _run(client)
+    result = _run(client)
 
-    assert model.sentiment == "positive"
-    assert usage == TokenUsage(prompt_tokens=100, completion_tokens=50)
-    assert usage.total == 150
+    assert result.content.sentiment == "positive"
+    assert result.token_usage == TokenUsage(prompt_tokens=100, completion_tokens=50)
+    assert result.token_usage.total == 150
 
 
-def _run(client: LLMClient) -> tuple[_ExampleModel, TokenUsage]:
+def _run(client: LLMClient) -> ChatResult[_ExampleModel]:
     import asyncio
 
     return asyncio.run(
@@ -67,10 +67,10 @@ def test_stub_client_chat_text_returns_canned_answer() -> None:
 
     import asyncio
 
-    text, usage = asyncio.run(stub.chat_text("gpt-4o-mini", [{"role": "user", "content": "q"}]))
+    result = asyncio.run(stub.chat_text("gpt-4o-mini", [{"role": "user", "content": "q"}]))
 
-    assert text == "42 is the answer"
-    assert usage.prompt_tokens == 10
+    assert result.content == "42 is the answer"
+    assert result.token_usage.prompt_tokens == 10
 
 
 @pytest.mark.parametrize(

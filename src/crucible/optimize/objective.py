@@ -27,6 +27,8 @@ def build_objective(
     metrics: list[Metric] | None = None,
     search_space: Callable[[optuna.trial.Trial], dict[str, Any]] | None = None,
     weights: dict[str, float] | None = None,
+    model_name: str | None = None,
+    tags: str | None = None,
 ) -> Callable[[optuna.trial.Trial], float]:
     """Build an Optuna objective that evaluates a sampled config and records it to lineage.
 
@@ -61,6 +63,8 @@ def build_objective(
             case_results=result.case_results,
             weights=weights,
             optuna_trial_number=trial.number,
+            model_name=model_name,
+            tags=tags,
         )
         return result.aggregate_score
 

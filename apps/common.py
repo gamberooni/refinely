@@ -1,4 +1,4 @@
-from __future__ import annotations
+"""Shared helpers for demo apps: deterministic keyword/hybrid snippet retrieval over an in-memory corpus."""
 
 import re
 

@@ -69,6 +69,11 @@ it, `crucible evaluate myapp` / `crucible optimize myapp` accept it, and
 `build_objective` resolves metrics, search space, and weights from the
 registration when you don't override them.
 
+To bootstrap the module instead of hand-writing it, run `crucible new app
+myapp`: it scaffolds `apps/myapp.py` (a complete `register_app` skeleton) plus a
+`datasets/myapp_v1.json` stub, and prints the `[project.entry-points."crucible.apps"]`
+line to add — it never edits `pyproject.toml` itself.
+
 ## Style 2: crucible as a library (driver)
 
 ### 1. Depend on crucible
@@ -211,6 +216,11 @@ worst_cases = db.case_results_for_run(best["run_id"])   # worst-first per case
 print(db.count_runs("myapp"))
 ```
 
+`CaseRecord` entries from `case_results_for_run` carry an `error` field (None for
+clean cases) — per-case failures are persisted, not just scored as 0.0.
+`list_runs(app, limit, offset, model_name=..., tag=...)` filters by the
+orthogonal model axis or by a creation-time tag.
+
 ### 8. Make it runnable
 
 Wrap it in an argparse entry point and run with your project's tooling:
@@ -218,6 +228,22 @@ Wrap it in an argparse entry point and run with your project's tooling:
 ```bash
 uv run python -m myapp.optimize_driver --pairs 20 --trials 3
 ```
+
+## Named configs and the model axis (CLI)
+
+The `crucible` CLI adds two conveniences on top of the library core:
+
+- **Named configs.** `crucible config save my-run --app myapp --config
+  '{"temperature": 0.4}'` writes `configs/myapp/my-run.json`. `--config` on
+  `evaluate` then accepts that name or an inline JSON object; with no `--config`,
+  `evaluate` uses a per-app default pointer (`crucible config default myapp --set
+  my-run`) or the app's registered default config. `optimize` auto-saves the best
+  trial's config to `configs/myapp/opt-best.json`.
+- **The model is an orthogonal axis.** `crucible evaluate myapp --model gpt-4o`
+  runs the app with that model while the LLM judge keeps using the configured
+  judge model; `--models a,b,c` records one run per model; `model_name` is a
+  column on `evaluation_runs`, so `compare` can show the same config across
+  models. Config files never contain a model name.
 
 ## Contract notes
 
@@ -227,7 +253,8 @@ uv run python -m myapp.optimize_driver --pairs 20 --trials 3
 - **Weights sum to 1.0**; a missing metric is treated as 0.0, so every metric
   named in the weights must appear in the metrics list.
 - **Scores clamp to 0.0–1.0** by construction (weighted means of per-case
-  scores); per-case errors and metric failures score 0.0 without aborting.
+  scores); per-case errors and metric failures score 0.0 without aborting the
+  run, and the error message is persisted in `case_results.error`.
 - **Settings**: crucible's `Settings` (`CRUCIBLE_*` env prefix, `.env` at the
   repo root, `OPENAI_API_KEY` fallback) is only used by crucible's own CLI and
   defaults. A driver passes its own client and settings — the framework never

@@ -146,7 +146,7 @@ class ExtractionApp:
         ]
 
         start = time.perf_counter()
-        response, usage = asyncio.run(
+        completion = asyncio.run(
             self._client.chat_structured(
                 self._settings.model_name,
                 messages,
@@ -154,6 +154,8 @@ class ExtractionApp:
                 temperature=temperature,
             )
         )
+        response = completion.content
+        usage = completion.token_usage
         latency = time.perf_counter() - start
 
         return Result(
