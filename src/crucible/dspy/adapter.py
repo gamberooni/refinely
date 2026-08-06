@@ -8,7 +8,12 @@ from crucible.llm.usage import Result, TokenUsage
 
 
 class CompiledProgramAdapter:
-    """Wrap a compiled DSPy program as a duck-typed app for EvaluationRunner."""
+    """Wrap a compiled DSPy program as a duck-typed app for EvaluationRunner.
+
+    prepare_example receives a synthetic case with expected=None; app
+    implementations must tolerate it (rag: non-dict -> {}; extraction:
+    non-dict -> field fallback; qa: str(None) in the unused answer slot).
+    """
 
     def __init__(self, spec: DspyProgramSpec, program: Any) -> None:
         self._spec = spec

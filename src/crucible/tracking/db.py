@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping, Self
+from typing import Any, Self
 
 from sqlalchemy import (
     Column,
@@ -36,6 +37,8 @@ evaluation_runs_table = Table(
     Column("created_at", Text, nullable=False),
 )
 
+# run_id FKs on the child tables were intentionally omitted: SQLite does not
+# enforce foreign keys unless PRAGMA foreign_keys=ON is set, which it never is.
 metric_results_table = Table(
     "metric_results",
     _metadata,
@@ -83,7 +86,7 @@ class LineageDB:
 
     def __init__(self, path: str | Path) -> None:
         self._path = path
-        self._engine = create_engine(f"sqlite:///{str(path)}")
+        self._engine = create_engine(f"sqlite:///{path!s}")
 
     @property
     def path(self) -> str:
