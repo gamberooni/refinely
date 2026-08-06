@@ -7,6 +7,7 @@ from crucible.cli import _load_run_context, main
 from crucible.core.settings import Settings
 from crucible.llm.usage import Result, TokenUsage
 from crucible.registry import AppRegistration
+from crucible.tracking.db import LineageDB
 from tests.stub_llm import StubLLMClient
 
 DATASET_PATH = Path("datasets/extraction_v1.json")
@@ -20,8 +21,7 @@ def _hermetic_settings(monkeypatch: pytest.MonkeyPatch) -> None:
 def _registration(*, dspy_factory=None, build_adapter=None) -> AppRegistration:
     return AppRegistration(
         name="extraction",
-        build_adapter=build_adapter
-        or (lambda client, settings, program_path=None: object()),
+        build_adapter=build_adapter or (lambda client, settings, program_path=None: object()),
         metrics_factory=lambda client, settings: [],
         search_space=lambda trial: {},
         default_config={},
@@ -115,3 +115,17 @@ def test_load_run_context_returns_expected_shape(
     assert version == "v1"
     assert ("load_dataset", DATASET_PATH) in calls
     assert ("dataset_version", DATASET_PATH) in calls
+
+
+def test_lineage_db_context_manager_inits_schema(tmp_path: Path) -> None:
+    db_path = tmp_path / "lineage.db"
+
+    with LineageDB(db_path) as db:
+        assert db.count_runs() == 0
+
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    conn.close()
+    assert {"evaluation_runs", "metric_results", "case_results", "dspy_compiles"} <= tables

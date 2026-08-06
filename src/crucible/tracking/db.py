@@ -30,6 +30,7 @@ class LineageDB:
         self._conn.close()
 
     def __enter__(self) -> Self:
+        self.init_schema()
         return self
 
     def __exit__(self, *exc: object) -> None:

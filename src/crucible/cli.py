@@ -73,18 +73,16 @@ def evaluate(app: str, program: str | None) -> None:
         dataset_version=version,
     )
 
-    db = LineageDB(settings.lineage_db_path)
-    db.init_schema()
-    run_id = db.record_run(
-        app_name=app,
-        dataset_version=version,
-        configuration=registration.default_config,
-        aggregate_score=result.aggregate_score,
-        metric_results=result.metric_results,
-        case_results=result.case_results,
-        weights=registration.weights,
-    )
-    db.close()
+    with LineageDB(settings.lineage_db_path) as db:
+        run_id = db.record_run(
+            app_name=app,
+            dataset_version=version,
+            configuration=registration.default_config,
+            aggregate_score=result.aggregate_score,
+            metric_results=result.metric_results,
+            case_results=result.case_results,
+            weights=registration.weights,
+        )
 
     click.echo(f"aggregate_score: {result.aggregate_score:.4f}")
     click.echo(f"metric_results: {result.metric_results}")
@@ -207,22 +205,20 @@ def compile(
     )
 
     db_path = lineage_db or settings.lineage_db_path
-    db = LineageDB(db_path)
-    db.init_schema()
-    compile_id = db.record_compile(
-        app_name=app,
-        dataset_version=version,
-        optimizer=result.optimizer,
-        configuration={
-            "max_rounds": max_rounds,
-            "max_labeled_demos": max_labeled_demos,
-            "max_bootstrapped_demos": max_bootstrapped_demos,
-        },
-        artifact_path=str(result.artifact_path),
-        baseline_score=result.baseline_score,
-        compiled_score=result.compiled_score,
-    )
-    db.close()
+    with LineageDB(db_path) as db:
+        compile_id = db.record_compile(
+            app_name=app,
+            dataset_version=version,
+            optimizer=result.optimizer,
+            configuration={
+                "max_rounds": max_rounds,
+                "max_labeled_demos": max_labeled_demos,
+                "max_bootstrapped_demos": max_bootstrapped_demos,
+            },
+            artifact_path=str(result.artifact_path),
+            baseline_score=result.baseline_score,
+            compiled_score=result.compiled_score,
+        )
 
     click.echo(f"baseline_score:  {result.baseline_score:.4f}")
     click.echo(f"compiled_score:  {result.compiled_score:.4f}")
