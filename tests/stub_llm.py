@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from crucible.llm.usage import TokenUsage
+from crucible.llm.usage import ChatResult, TokenUsage
 
 
 class StubLLMClient:
@@ -40,7 +40,7 @@ class StubLLMClient:
         response_model: type[BaseModel],
         temperature: float = 0.0,
         seed: int = 42,
-    ) -> tuple[BaseModel, TokenUsage]:
+    ) -> ChatResult[BaseModel]:
         self.structured_calls.append(
             {
                 "model": model,
@@ -54,7 +54,7 @@ class StubLLMClient:
             parsed = json.loads(canned)
         else:
             parsed = dict(canned)
-        return response_model.model_validate(parsed), self._usage()
+        return ChatResult(content=response_model.model_validate(parsed), token_usage=self._usage())
 
     async def chat_text(
         self,
@@ -62,7 +62,7 @@ class StubLLMClient:
         messages: list[dict],
         temperature: float = 0.0,
         seed: int = 42,
-    ) -> tuple[str, TokenUsage]:
+    ) -> ChatResult[str]:
         self.text_calls.append(
             {
                 "model": model,
@@ -72,7 +72,7 @@ class StubLLMClient:
             }
         )
         canned = self.text_responses.pop(0) if self.text_responses else "canned answer"
-        return canned, self._usage()
+        return ChatResult(content=canned, token_usage=self._usage())
 
     def _usage(self) -> TokenUsage:
         return TokenUsage(

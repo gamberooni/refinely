@@ -1,7 +1,8 @@
 # rag-app Specification
 
 ## Purpose
-TBD - created by archiving change rag-pipeline-app. Update Purpose after archive.
+
+The `RAGApp` reference application: a multi-stage retrieval-augmented QA pipeline (optional query expansion → deterministic snippet retrieval → optional LLM reranking → structured generation with citations) that stresses the framework with conditional stages, multiple LLM calls per case, dataset-aware retrieval metrics, and a mixed-type search space. (Adapted from change `rag-pipeline-app`.)
 ## Requirements
 ### Requirement: RAG application
 The system SHALL provide a `RAGApp` that implements `ApplicationAdapter`, running a multi-stage retrieval-augmented QA pipeline: optional query expansion, deterministic snippet retrieval, optional LLM reranking, and structured generation with citations.

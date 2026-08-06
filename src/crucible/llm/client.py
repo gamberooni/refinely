@@ -12,7 +12,7 @@ from tenacity import (
 )
 
 from crucible.core.exceptions import LLMError
-from crucible.llm.usage import TokenUsage
+from crucible.llm.usage import ChatResult, TokenUsage
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -81,7 +81,7 @@ class LLMClient(Protocol):
         response_model: type[T],
         temperature: float = 0.0,
         seed: int = 42,
-    ) -> tuple[T, TokenUsage]: ...
+    ) -> ChatResult[T]: ...
 
     async def chat_text(
         self,
@@ -89,7 +89,7 @@ class LLMClient(Protocol):
         messages: list[dict],
         temperature: float = 0.0,
         seed: int = 42,
-    ) -> tuple[str, TokenUsage]: ...
+    ) -> ChatResult[str]: ...
 
 
 class AsyncOpenAIClient:
@@ -128,7 +128,7 @@ class AsyncOpenAIClient:
         response_model: type[T],
         temperature: float | None = None,
         seed: int | None = None,
-    ) -> tuple[T, TokenUsage]:
+    ) -> ChatResult[T]:
         temp = temperature if temperature is not None else self._default_temperature
         s = seed if seed is not None else self._default_seed
         try:
@@ -145,7 +145,7 @@ class AsyncOpenAIClient:
         response_model: type[T],
         temperature: float,
         seed: int,
-    ) -> tuple[T, TokenUsage]:
+    ) -> ChatResult[T]:
         schema = response_model.model_json_schema()
         schema_json = json.dumps(schema, indent=2)
 
@@ -187,7 +187,10 @@ class AsyncOpenAIClient:
             if not candidate:
                 continue
             try:
-                return response_model.model_validate_json(candidate), token_usage
+                return ChatResult(
+                    content=response_model.model_validate_json(candidate),
+                    token_usage=token_usage,
+                )
             except Exception:  # noqa: BLE001, S110 - JSON candidate fallback
                 pass
 
@@ -231,7 +234,10 @@ class AsyncOpenAIClient:
             if not candidate:
                 continue
             try:
-                return response_model.model_validate_json(candidate), token_usage
+                return ChatResult(
+                    content=response_model.model_validate_json(candidate),
+                    token_usage=token_usage,
+                )
             except Exception:  # noqa: BLE001, S110 - JSON candidate fallback
                 pass
 
@@ -245,7 +251,7 @@ class AsyncOpenAIClient:
         messages: list[dict],
         temperature: float | None = None,
         seed: int | None = None,
-    ) -> tuple[str, TokenUsage]:
+    ) -> ChatResult[str]:
         temp = temperature if temperature is not None else self._default_temperature
         s = seed if seed is not None else self._default_seed
 
@@ -268,4 +274,4 @@ class AsyncOpenAIClient:
             prompt_tokens=usage.prompt_tokens if usage else 0,
             completion_tokens=usage.completion_tokens if usage else 0,
         )
-        return content, token_usage
+        return ChatResult(content=content, token_usage=token_usage)

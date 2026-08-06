@@ -438,21 +438,21 @@ def test_dspy_lm_no_base_url(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_format_snippet_block_default_ordinals():
-    from crucible.retrieval import format_snippet_block
+    from apps.common import format_snippet_block
 
     block = format_snippet_block(["alpha", "beta"])
     assert block == "[snippet 1] alpha\n\n[snippet 2] beta"
 
 
 def test_format_snippet_block_explicit_labels():
-    from crucible.retrieval import format_snippet_block
+    from apps.common import format_snippet_block
 
     block = format_snippet_block(["alpha", "beta"], labels=[3, 7])
     assert block == "[snippet 3] alpha\n\n[snippet 7] beta"
 
 
 def test_format_snippet_block_empty():
-    from crucible.retrieval import format_snippet_block
+    from apps.common import format_snippet_block
 
     assert format_snippet_block([]) == ""
 

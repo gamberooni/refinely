@@ -1,4 +1,6 @@
 import json
+from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -80,3 +82,76 @@ def dataset_version(path: str | Path) -> str:
         except (json.JSONDecodeError, OSError):
             pass
     return p.stem
+
+
+@dataclass
+class DatasetStats:
+    """Structural statistics for a dataset file. Never raises on inconsistencies."""
+
+    case_count: int
+    file_size_bytes: int
+    input_field_counts: dict[str, int]
+    expected_shape_counts: dict[str, int]
+    expected_key_counts: dict[str, int] = field(default_factory=dict)
+    malformed: list[str] = field(default_factory=list)
+
+
+def _coarse_type(value: Any) -> str:
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, dict):
+        return "dict"
+    if isinstance(value, list):
+        return "list"
+    if isinstance(value, str):
+        return "str"
+    if isinstance(value, (int, float)):
+        return "num"
+    if value is None:
+        return "null"
+    return "other"
+
+
+def dataset_stats(path: str | Path) -> DatasetStats:
+    """Compute structural statistics for a dataset file.
+
+    Reuses `load_dataset` for parsing, so structurally invalid files raise the
+    same `EvalError` naming the file and offending case. Cases that parse but
+    deviate from the modal input-key set or modal expected shape are reported
+    in `malformed` by case id.
+    """
+    p = Path(path)
+    cases = load_dataset(p)
+
+    input_keys = Counter()
+    expected_shapes = Counter()
+    expected_keys = Counter()
+    key_sets = Counter()
+    for case in cases:
+        input_keys.update(case.input.keys())
+        key_sets[frozenset(case.input.keys())] += 1
+        expected_shapes[_coarse_type(case.expected)] += 1
+        if isinstance(case.expected, dict):
+            expected_keys.update(case.expected.keys())
+
+    modal_input_keys = set(key_sets.most_common(1)[0][0]) if key_sets else set()
+    modal_expected_shape = (
+        expected_shapes.most_common(1)[0][0] if expected_shapes else None
+    )
+
+    malformed: list[str] = []
+    for case in cases:
+        if key_sets and set(case.input.keys()) != modal_input_keys:
+            malformed.append(case.id)
+            continue
+        if modal_expected_shape is not None and _coarse_type(case.expected) != modal_expected_shape:
+            malformed.append(case.id)
+
+    return DatasetStats(
+        case_count=len(cases),
+        file_size_bytes=p.stat().st_size if p.exists() else 0,
+        input_field_counts=dict(input_keys),
+        expected_shape_counts=dict(expected_shapes),
+        expected_key_counts=dict(expected_keys) if expected_keys else {},
+        malformed=sorted(malformed),
+    )

@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from apps.common import format_snippet_block, retrieve_snippets_indexed
 from crucible.core.exceptions import EvalError
 from crucible.core.settings import Settings
 from crucible.dspy.bridge import CASE_ATTR
@@ -21,7 +22,6 @@ from crucible.eval.metrics import (
 from crucible.llm.client import LLMClient
 from crucible.llm.usage import Result, TokenUsage
 from crucible.registry import AppRegistration, register_app
-from crucible.retrieval import format_snippet_block, retrieve_snippets_indexed
 
 DATASET_PATH = Path(__file__).resolve().parents[1] / "datasets" / "rag_v1.json"
 
@@ -199,12 +199,14 @@ class RAGApp:
             },
         ]
 
-        response, usage = await self._client.chat_structured(
+        completion = await self._client.chat_structured(
             self._settings.model_name,
             messages,
             RAGAnswer,
             temperature=temperature,
         )
+        response = completion.content
+        usage = completion.token_usage
         prompt_tokens += usage.prompt_tokens
         completion_tokens += usage.completion_tokens
         latency = time.perf_counter() - start
@@ -233,10 +235,10 @@ class RAGApp:
             },
             {"role": "user", "content": f"Question: {question}"},
         ]
-        text, usage = await self._client.chat_text(
+        completion = await self._client.chat_text(
             self._settings.model_name, messages, temperature=temperature
         )
-        return text.strip(), usage
+        return completion.content.strip(), completion.token_usage
 
     async def _rerank(
         self,
@@ -259,12 +261,14 @@ class RAGApp:
                 "content": f"Question: {question}\n\nSnippets:\n{snippet_block}",
             },
         ]
-        response, usage = await self._client.chat_structured(
+        completion = await self._client.chat_structured(
             self._settings.model_name,
             messages,
             SnippetScores,
             temperature=temperature,
         )
+        response = completion.content
+        usage = completion.token_usage
         scores = response.scores + [0] * (len(candidates) - len(response.scores))
         ranked = sorted(zip(candidates, scores), key=lambda pair: -pair[1])
         return [candidate for candidate, _ in ranked[:top_k]], usage

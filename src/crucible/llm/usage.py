@@ -1,6 +1,8 @@
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
+
+T = TypeVar("T")
 
 
 class TokenUsage(BaseModel):
@@ -18,3 +20,10 @@ class Result(BaseModel):
     output: dict[str, Any] | str
     token_usage: TokenUsage
     latency_seconds: float
+
+
+class ChatResult(BaseModel, Generic[T]):
+    """A chat completion: parsed content plus token usage."""
+
+    content: T
+    token_usage: TokenUsage
