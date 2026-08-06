@@ -5,6 +5,7 @@ The `dspy` package is an optional dependency (uv group `dspy`); every
 """
 
 from crucible.dspy._imports import _dspy
+from crucible.dspy.adapter import CompiledProgramAdapter
 from crucible.dspy.bridge import (
     example_case,
     make_dspy_metric,
@@ -13,15 +14,18 @@ from crucible.dspy.bridge import (
 )
 from crucible.dspy.compile import CompileResult, compile_program
 from crucible.dspy.lm import configure_lm
+from crucible.dspy.load import load_program
 from crucible.dspy.spec import DspyProgramSpec
 
 __all__ = [
     "CompileResult",
+    "CompiledProgramAdapter",
     "DspyProgramSpec",
     "_dspy",
     "compile_program",
     "configure_lm",
     "example_case",
+    "load_program",
     "make_dspy_metric",
     "prediction_result",
     "score_result",

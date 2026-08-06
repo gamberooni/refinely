@@ -20,7 +20,7 @@ from crucible.eval.metrics import (
 from crucible.llm.client import LLMClient
 from crucible.llm.usage import Result, TokenUsage
 from crucible.registry import AppRegistration, register_app
-from crucible.retrieval import retrieve_snippets
+from crucible.retrieval import format_snippet_block, retrieve_snippets
 
 DATASET_PATH = Path(__file__).resolve().parents[1] / "datasets" / "qa_v1.json"
 
@@ -57,12 +57,14 @@ class QAApp:
         self._settings = settings or Settings()
         self._dspy_program: Any = None
         if program_path is not None:
-            from crucible.dspy.lm import configure_lm
+            from crucible.dspy.load import load_program
 
-            program = _qa_dspy_factory(self._corpus, self._settings).build()
-            program.load(program_path)
-            configure_lm(self._settings, temperature=QA_DEFAULT_CONFIG.get("temperature", 0.0))
-            self._dspy_program = program
+            self._dspy_program = load_program(
+                _qa_dspy_factory(self._corpus, self._settings),
+                program_path,
+                self._settings,
+                temperature=QA_DEFAULT_CONFIG.get("temperature", 0.0),
+            )
 
     def execute(self, input: dict, config: dict) -> Result:
         temperature = float(config.get("temperature", 0.0))
@@ -73,7 +75,7 @@ class QAApp:
 
         question = input.get("question", "")
         snippets = retrieve_snippets(question, self._corpus, top_k=top_k)
-        snippet_block = "\n\n".join(f"[snippet {i + 1}] {s}" for i, s in enumerate(snippets))
+        snippet_block = format_snippet_block(snippets)
 
         if self._dspy_program is not None:
             start = time.perf_counter()
@@ -148,7 +150,7 @@ def _qa_dspy_factory(corpus: list[str], settings: Settings) -> DspyProgramSpec:
         dspy = __import__("dspy")
         question = case.input.get("question", "")
         snippets = retrieve_snippets(question, corpus, top_k=3)
-        snippet_block = "\n\n".join(f"[snippet {i + 1}] {s}" for i, s in enumerate(snippets))
+        snippet_block = format_snippet_block(snippets)
         example = dspy.Example(
             question=question,
             snippets=snippet_block,

@@ -4,7 +4,7 @@ Welcome! This document is a reference for anyone working on Crucible — what it
 
 ## Project Overview
 
-Crucible is a minimal prototype for evaluating and optimizing LLM application configurations. It is a Python 3.13 CLI package (built with uv/hatchling, distributed as the `crucible` console script) that:
+Crucible is a minimal prototype for evaluating and optimizing LLM application configurations. It is a Python 3.11 CLI package (built with uv/hatchling, distributed as the `crucible` console script) that:
 
 1. Runs a configurable "application" (an extraction app, a retrieval-lite QA app, or a 4-stage RAG app) over a versioned JSON dataset of cases.
 2. Scores every case with a set of weighted metrics (exact/fuzzy match, LLM judge, retrieval recall, citation accuracy, latency, cost).
@@ -19,7 +19,7 @@ The intended consumer is the CLI. There is no HTTP server, no web UI, and no lib
 
 ### Prerequisites
 
-- **Python 3.13+** (declared via `requires-python = ">=3.13"` in `pyproject.toml`)
+- **Python 3.11+** (declared via `requires-python = ">=3.11"` in `pyproject.toml`)
 - **uv** — the project uses uv for environment and dependency management. If you don't have it, install per [the uv docs](https://docs.astral.sh/uv/). There is no `requirements.txt` or `setup.py`; uv reads `pyproject.toml` directly.
 
 ### Install
@@ -209,7 +209,7 @@ Keep `docs/integration.md` in sync when the public API surface changes.
 
 ## Code Style & Conventions
 
-- **Python 3.13, typed**: all public functions carry annotations, pydantic v2 models (`BaseModel`) are used for structured data, and protocols are used for seams.
+- **Python 3.11, typed**: all public functions carry annotations, pydantic v2 models (`BaseModel`) are used for structured data, and protocols are used for seams.
 - **Naming**: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_SNAKE_CASE` for module constants (price constants, budgets, `EXTRACTION_WEIGHTS`/`QA_WEIGHTS`/`RAG_WEIGHTS`, `SYSTEM_PROMPTS`).
 - **No code comments unless asked** — the project convention is that code should be self-explanatory; comments are added deliberately, not routinely.
 - **Exceptions**: a small hierarchy in `core/exceptions.py` (`CrucibleError` base; `LLMError` for client failures, `EvalError` for evaluation/data/optimize failures). Raise these rather than bare `Exception`s.

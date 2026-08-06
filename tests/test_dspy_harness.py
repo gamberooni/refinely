@@ -430,3 +430,108 @@ def test_dspy_lm_no_base_url(monkeypatch: pytest.MonkeyPatch):
     configure_lm(s)
 
     assert "api_base" not in captured["kwargs"]
+
+
+# ---------------------------------------------------------------------------
+# retrieval.format_snippet_block
+# ---------------------------------------------------------------------------
+
+
+def test_format_snippet_block_default_ordinals():
+    from crucible.retrieval import format_snippet_block
+
+    block = format_snippet_block(["alpha", "beta"])
+    assert block == "[snippet 1] alpha\n\n[snippet 2] beta"
+
+
+def test_format_snippet_block_explicit_labels():
+    from crucible.retrieval import format_snippet_block
+
+    block = format_snippet_block(["alpha", "beta"], labels=[3, 7])
+    assert block == "[snippet 3] alpha\n\n[snippet 7] beta"
+
+
+def test_format_snippet_block_empty():
+    from crucible.retrieval import format_snippet_block
+
+    assert format_snippet_block([]) == ""
+
+
+# ---------------------------------------------------------------------------
+# dspy.load.load_program
+# ---------------------------------------------------------------------------
+
+
+def test_load_program_builds_loads_and_configures(monkeypatch: pytest.MonkeyPatch):
+    loaded: list[str] = []
+
+    class FakeProgram:
+        def load(self, path: str) -> None:
+            loaded.append(path)
+
+    built = FakeProgram()
+
+    spec = DspyProgramSpec(
+        build=lambda: built,
+        prepare_example=lambda case: None,
+        prediction_to_output=lambda pred: {},
+    )
+    configured: dict = {}
+
+    monkeypatch.setattr(
+        "crucible.dspy.load._dspy",
+        lambda: MagicMock(),
+    )
+    monkeypatch.setattr(
+        "crucible.dspy.load.configure_lm",
+        lambda settings, temperature=0.0, **kw: configured.update(
+            {"settings": settings, "temperature": temperature}
+        ),
+    )
+
+    from crucible.dspy.load import load_program
+
+    s = Settings(openai_api_key="sk-test")
+    program = load_program(spec, "artifacts/prog.json", s, temperature=0.25)
+
+    assert program is built
+    assert loaded == ["artifacts/prog.json"]
+    assert configured["settings"] is s
+    assert configured["temperature"] == pytest.approx(0.25)
+
+
+# ---------------------------------------------------------------------------
+# dspy.adapter.CompiledProgramAdapter
+# ---------------------------------------------------------------------------
+
+
+def test_compiled_program_adapter_execute():
+    from crucible.dspy.adapter import CompiledProgramAdapter
+
+    class _Example:
+        def inputs(self):
+            return {"text": "hi", "field": "sentiment"}
+
+    called: dict = {}
+
+    def _program(**kwargs):
+        called.update(kwargs)
+        return MagicMock(field_name="sentiment", field_value="positive")
+
+    spec = DspyProgramSpec(
+        build=lambda: None,
+        prepare_example=lambda case: _Example(),
+        prediction_to_output=lambda pred: {
+            "field_name": pred.field_name,
+            "field_value": pred.field_value,
+        },
+    )
+
+    adapter = CompiledProgramAdapter(spec, _program)
+    result = adapter.execute(input={"text": "hi"}, config={})
+
+    assert called == {"text": "hi", "field": "sentiment"}
+    assert result.output == {"field_name": "sentiment", "field_value": "positive"}
+    assert result.token_usage.prompt_tokens == 0
+    assert result.token_usage.completion_tokens == 0
+    assert result.latency_seconds == 0.0

@@ -21,7 +21,7 @@ from crucible.eval.metrics import (
 from crucible.llm.client import LLMClient
 from crucible.llm.usage import Result, TokenUsage
 from crucible.registry import AppRegistration, register_app
-from crucible.retrieval import retrieve_snippets_indexed
+from crucible.retrieval import format_snippet_block, retrieve_snippets_indexed
 
 DATASET_PATH = Path(__file__).resolve().parents[1] / "datasets" / "rag_v1.json"
 
@@ -124,12 +124,14 @@ class RAGApp:
         self._settings = settings or Settings()
         self._dspy_program: Any = None
         if program_path is not None:
-            from crucible.dspy.lm import configure_lm
+            from crucible.dspy.load import load_program
 
-            program = _rag_dspy_factory(self._corpus).build()
-            program.load(program_path)
-            configure_lm(self._settings, temperature=RAG_DEFAULT_CONFIG.get("temperature", 0.0))
-            self._dspy_program = program
+            self._dspy_program = load_program(
+                _rag_dspy_factory(self._corpus),
+                program_path,
+                self._settings,
+                temperature=RAG_DEFAULT_CONFIG.get("temperature", 0.0),
+            )
 
     def execute(self, input: dict, config: dict) -> Result:
         return asyncio.run(self._execute_async(input, config))
@@ -164,7 +166,9 @@ class RAGApp:
             completion_tokens += usage.completion_tokens
 
         retrieved_indices = [idx for idx, _ in candidates]
-        snippet_block = "\n\n".join(f"[snippet {idx}] {snippet}" for idx, snippet in candidates)
+        snippet_block = format_snippet_block(
+            [snippet for _, snippet in candidates], labels=[idx for idx, _ in candidates]
+        )
 
         if self._dspy_program is not None:
             prediction = self._dspy_program(question=question, snippets=snippet_block)
@@ -310,7 +314,9 @@ def _rag_dspy_factory(corpus: list[str]) -> DspyProgramSpec:
         dspy = __import__("dspy")
         question = case.input.get("question", "")
         candidates = retrieve_snippets_indexed(question, corpus, top_k=3, strategy="hybrid")
-        snippet_block = "\n\n".join(f"[snippet {idx}] {snippet}" for idx, snippet in candidates)
+        snippet_block = format_snippet_block(
+            [snippet for _, snippet in candidates], labels=[idx for idx, _ in candidates]
+        )
         expected = case.expected if isinstance(case.expected, dict) else {}
         example = dspy.Example(
             question=question,
