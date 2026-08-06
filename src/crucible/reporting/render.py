@@ -81,7 +81,10 @@ def _metric_cell(run: Run, metric: str, ref: Run | None) -> str:
     return f"{_fmt(value)} ({delta:+.4f})"
 
 
-def compare_table(runs_chronological: Sequence[Run], baseline_id: str | None = None) -> Table:
+def compare_table(
+    runs_chronological: Sequence[Run],
+    baseline_run: Run | None = None,
+) -> Table:
     table = Table(title="Compare")
     table.add_column("run_id")
     table.add_column("created_at", overflow="fold")
@@ -90,17 +93,13 @@ def compare_table(runs_chronological: Sequence[Run], baseline_id: str | None = N
     for metric in metrics:
         table.add_column(metric, justify="right")
 
-    baseline_run: Run | None = None
-    if baseline_id is not None:
-        baseline_run = next((r for r in runs_chronological if r["run_id"] == baseline_id), None)
-
     for index, run in enumerate(runs_chronological):
-        if baseline_id is None:
+        if baseline_run is None:
             is_baseline = index == 0
             ref = runs_chronological[index - 1] if index > 0 else None
         else:
-            is_baseline = run["run_id"] == baseline_id
-            ref = baseline_run
+            is_baseline = run["run_id"] == baseline_run["run_id"]
+            ref = None if is_baseline else baseline_run
         run_id = _run_id(run["run_id"])
         if is_baseline:
             run_id = f"{run_id} (baseline)"
@@ -113,9 +112,7 @@ def compare_table(runs_chronological: Sequence[Run], baseline_id: str | None = N
     return table
 
 
-def best_run_panel(best_run: Run | None) -> Panel | None:
-    if best_run is None:
-        return None
+def best_run_panel(best_run: Run) -> Panel:
     return Panel(
         "\n".join(
             [
@@ -128,9 +125,7 @@ def best_run_panel(best_run: Run | None) -> Panel | None:
     )
 
 
-def best_compile_panel(best_compile: Run | None) -> Panel | None:
-    if best_compile is None:
-        return None
+def best_compile_panel(best_compile: Run) -> Panel:
     return Panel(
         "\n".join(
             [

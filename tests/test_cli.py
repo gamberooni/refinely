@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -78,7 +78,11 @@ def _seed_runs(db_path: Path, scores: list[float], *, cases: bool = False) -> li
             conn.execute(
                 evaluation_runs_table.update()
                 .where(evaluation_runs_table.c.run_id == run_id)
-                .values(created_at=datetime(2026, 1, i + 1, tzinfo=UTC).isoformat())
+                .values(
+                    created_at=(
+                        datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=i)
+                    ).isoformat()
+                )
             )
     db.close()
     return run_ids
@@ -295,6 +299,114 @@ def test_compare_unknown_baseline_errors(
 
     assert result.exit_code == 1
     assert "Baseline run 'nonexistent' not found for app 'extraction'" in result.output
+
+
+def test_show_run_finds_id_beyond_default_limit(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("crucible.cli.get_registration", lambda app: _registration())
+    run_ids = _seed_runs(tmp_path / "lineage.db", [0.1] * 55)
+
+    result = _invoke(["show", "extraction", "--run", run_ids[0]])
+
+    assert result.exit_code == 0, result.output
+    assert "Cases (worst first)" in result.output
+
+
+def test_show_pagination(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("crucible.cli.get_registration", lambda app: _registration())
+    run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.01 * i for i in range(60)])
+
+    result = _invoke(["show", "extraction", "--page", "2", "--limit", "10"])
+
+    assert result.exit_code == 0, result.output
+    assert "page 2 of 6" in result.output
+    assert run_ids[45][:8] in result.output
+    assert run_ids[40][:8] in result.output
+    assert run_ids[30][:8] not in result.output
+
+
+def test_show_page_out_of_range_errors(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("crucible.cli.get_registration", lambda app: _registration())
+    _seed_runs(tmp_path / "lineage.db", [0.1] * 5)
+
+    result = _invoke(["show", "extraction", "--page", "2"])
+
+    assert result.exit_code == 1
+    assert "Page 2 is out of range for app 'extraction' (only 5 runs)" in result.output
+
+
+def test_compare_pagination(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("crucible.cli.get_registration", lambda app: _registration())
+    run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.01 * i for i in range(60)])
+
+    result = _invoke(["compare", "extraction", "--page", "2", "--page-size", "10"])
+
+    assert result.exit_code == 0, result.output
+    assert "page 2 of 6" in result.output
+    assert run_ids[10][:8] in result.output
+    assert run_ids[19][:8] in result.output
+    assert run_ids[9][:8] not in result.output
+
+
+def test_compare_baseline_across_pages(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("crucible.cli.get_registration", lambda app: _registration())
+    run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.05 * i for i in range(20)])
+
+    result = _invoke(
+        [
+            "compare",
+            "extraction",
+            "--baseline",
+            run_ids[0],
+            "--page",
+            "2",
+            "--page-size",
+            "10",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "(baseline)" not in result.output
+    assert "0.6000 (+0.5000)" in result.output
+    assert "0.6500 (+0.5500)" in result.output
+
+
+def test_compare_without_runs_prints_message(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("crucible.cli.get_registration", lambda app: _registration())
+
+    result = _invoke(["compare", "extraction"])
+
+    assert result.exit_code == 0, result.output
+    assert "No runs recorded for app 'extraction'" in result.output
 
 
 def test_export_csv_writes_file_and_echoes_path(

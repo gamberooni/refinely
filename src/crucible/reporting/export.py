@@ -22,7 +22,9 @@ def export_runs_csv(runs: Sequence[Run], path: str | Path) -> None:
     metrics = _metric_names(runs)
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["run_id", "created_at", "aggregate_score", "optuna_trial_number", *metrics])
+        writer.writerow(
+            ["run_id", "created_at", "aggregate_score", "optuna_trial_number", *metrics]
+        )
         for run in runs:
             metric_values = run.get("metric_results", {})
             writer.writerow(

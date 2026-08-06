@@ -1,5 +1,7 @@
 """Click-based command-line interface for crucible."""
 
+import math
+
 import click
 from rich.console import Console
 from rich.panel import Panel
@@ -279,23 +281,38 @@ def compile(
     type=int,
     help="Max number of runs to show.",
 )
-def show(app: str, run_id: str | None, limit: int) -> None:
+@click.option(
+    "--page",
+    default=1,
+    show_default=True,
+    type=int,
+    help="Page of run history to show (1-based, newest first).",
+)
+def show(app: str, run_id: str | None, limit: int, page: int) -> None:
     """Show APP's run history, best summaries, or a run's per-case results."""
     registration = get_registration(app)
     settings = Settings()
     console = Console()
     with LineageDB(settings.lineage_db_path) as db:
         if run_id is not None:
-            runs = db.list_runs(registration.name)
-            if not any(r["run_id"] == run_id for r in runs):
+            if not db.run_exists(run_id):
                 raise click.ClickException(f"Run {run_id!r} not found for app {app!r}")
             console.print(cases_table(db.case_results_for_run(run_id)))
             return
-        runs = db.list_runs(registration.name, limit=limit)
-        if not runs:
+        total = db.count_runs(registration.name)
+        if total == 0:
             console.print(f"No runs recorded for app {app!r}.")
             return
+        offset = (page - 1) * limit
+        if offset >= total:
+            raise click.ClickException(
+                f"Page {page} is out of range for app {app!r} (only {total} runs)."
+            )
+        runs = db.list_runs(registration.name, limit=limit, offset=offset)
         console.print(runs_table(runs))
+        pages = math.ceil(total / limit)
+        if pages > 1:
+            console.print(f"page {page} of {pages}")
         best_run = db.best_run(registration.name)
         if best_run is not None:
             console.print(best_run_panel(best_run))
@@ -312,19 +329,44 @@ def show(app: str, run_id: str | None, limit: int) -> None:
     type=str,
     help="Compare every run against this run id instead of the previous run.",
 )
-def compare(app: str, baseline: str | None) -> None:
+@click.option(
+    "--page",
+    default=1,
+    show_default=True,
+    type=int,
+    help="Page of runs to compare (1-based, chronological).",
+)
+@click.option(
+    "--page-size",
+    default=50,
+    show_default=True,
+    type=int,
+    help="Max number of runs per compare page.",
+)
+def compare(app: str, baseline: str | None, page: int, page_size: int) -> None:
     """Compare APP's runs with per-metric deltas against a baseline."""
     registration = get_registration(app)
     settings = Settings()
     console = Console()
     with LineageDB(settings.lineage_db_path) as db:
-        runs = db.list_runs(registration.name)
-        if not runs:
+        total = db.count_runs(registration.name)
+        if total == 0:
             console.print(f"No runs recorded for app {app!r}.")
             return
-        if baseline is not None and not any(r["run_id"] == baseline for r in runs):
+        if baseline is not None and not db.run_exists(baseline):
             raise click.ClickException(f"Baseline run {baseline!r} not found for app {app!r}")
-        console.print(compare_table(list(reversed(runs)), baseline_id=baseline))
+        if (page - 1) * page_size >= total:
+            raise click.ClickException(
+                f"Page {page} is out of range for app {app!r} (only {total} runs)."
+            )
+        offset = max(0, total - page * page_size)
+        limit = min(page_size, total - (page - 1) * page_size)
+        runs = db.list_runs(registration.name, limit=limit, offset=offset)
+        baseline_run = db.get_run(baseline) if baseline is not None else None
+        console.print(compare_table(list(reversed(runs)), baseline_run=baseline_run))
+        pages = math.ceil(total / page_size)
+        if pages > 1:
+            console.print(f"page {page} of {pages}")
 
 
 @main.command()

@@ -218,6 +218,84 @@ def test_list_runs_parses_configuration_json(tmp_path: pytest.TempPathFactory) -
     db.close()
 
 
+def test_run_exists_true_for_recorded_run(tmp_path: pytest.TempPathFactory) -> None:
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+    run_id = db.record_run(
+        app_name="extraction",
+        dataset_version="extraction_v1",
+        configuration={},
+        aggregate_score=0.5,
+        metric_results={"exact_match": 0.5},
+        case_results=_case_results(1),
+        weights=EXTRACTION_WEIGHTS,
+    )
+
+    assert db.run_exists(run_id) is True
+    db.close()
+
+
+def test_run_exists_false_for_unknown_run(tmp_path: pytest.TempPathFactory) -> None:
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+
+    assert db.run_exists("does-not-exist") is False
+    db.close()
+
+
+def test_list_runs_respects_offset(tmp_path: pytest.TempPathFactory) -> None:
+    from datetime import UTC, datetime
+
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+    run_ids = []
+    for i in range(5):
+        run_id = db.record_run(
+            app_name="extraction",
+            dataset_version="extraction_v1",
+            configuration={},
+            aggregate_score=0.1 + i,
+            metric_results={"exact_match": 0.1 + i},
+            case_results=_case_results(1),
+            weights=EXTRACTION_WEIGHTS,
+        )
+        run_ids.append(run_id)
+        with db._engine.begin() as conn:
+            conn.execute(
+                evaluation_runs_table.update()
+                .where(evaluation_runs_table.c.run_id == run_id)
+                .values(created_at=datetime(2026, 1, i + 1, tzinfo=UTC).isoformat())
+            )
+
+    runs = db.list_runs("extraction", limit=2, offset=2)
+
+    assert [r["run_id"] for r in runs] == [run_ids[2], run_ids[1]]
+    db.close()
+
+
+def test_get_run_returns_run_with_metrics(tmp_path: pytest.TempPathFactory) -> None:
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+    run_id = db.record_run(
+        app_name="extraction",
+        dataset_version="extraction_v1",
+        configuration={"temperature": 0.5},
+        aggregate_score=0.7,
+        metric_results={"exact_match": 0.7, "latency": 1.0},
+        case_results=_case_results(1),
+        weights=EXTRACTION_WEIGHTS,
+    )
+
+    run = db.get_run(run_id)
+
+    assert run is not None
+    assert run["run_id"] == run_id
+    assert run["metric_results"] == {"exact_match": 0.7, "latency": 1.0}
+    assert run["configuration"] == {"temperature": 0.5}
+    assert db.get_run("does-not-exist") is None
+    db.close()
+
+
 def test_case_results_ordered_by_score_ascending(
     tmp_path: pytest.TempPathFactory,
 ) -> None:
