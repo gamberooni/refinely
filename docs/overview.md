@@ -50,5 +50,5 @@ The RAG app exists specifically to stress-test the framework: it has conditional
 - **Persisted error reporting**: per-case errors exist only in memory; the `case_results` table deliberately has no error column.
 - **Multi-model comparison**: evaluation runs one model (from settings); model A/B comparisons are out of scope.
 - **Metric authoring beyond code**: metrics are Python classes; apps register their metric set, weights, search space, and default config via `register_app` (`registry.py`); no plugin loading or DSL.
-- **Observability tooling**: no dashboards, charts, or web UI — lineage is queried with `sqlite3` (an example query is in the README).
+- **Observability tooling**: no dashboards, charts, or web UI — lineage read-back is provided by the `crucible show/compare/export` commands (terminal tables and CSV/JSON file export), and raw `sqlite3` queries (an example query is in the README) remain available.
 - **Production-grade robustness**: retry (tenacity) and structured-output repair exist, but there is no rate-limit budgeting, caching, or cost management for long optimize runs.
