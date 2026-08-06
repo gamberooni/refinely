@@ -15,6 +15,7 @@ dependencies = [
     "optuna",
     "click",
     "sqlalchemy>=2.0",
+    "rich",
 ]
 
 [project.scripts]
