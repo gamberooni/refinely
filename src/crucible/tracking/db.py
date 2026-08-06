@@ -204,6 +204,43 @@ class LineageDB:
             for r in rows
         ]
 
+    def list_runs(self, app_name: str, limit: int = 50) -> list[dict[str, Any]]:
+        """Fetch an app's runs newest first with per-metric values joined.
+
+        Metrics are pivoted into a ``metric_results`` dict per run via a
+        Python-side join of two selects, since metric sets vary across apps.
+        """
+        runs_stmt = (
+            select(evaluation_runs_table)
+            .where(evaluation_runs_table.c.app_name == app_name)
+            .order_by(evaluation_runs_table.c.created_at.desc())
+            .limit(limit)
+        )
+        with self._engine.connect() as conn:
+            run_rows = conn.execute(runs_stmt).mappings().all()
+            if not run_rows:
+                return []
+            metric_stmt = (
+                select(
+                    metric_results_table.c.run_id,
+                    metric_results_table.c.metric_name,
+                    metric_results_table.c.value,
+                )
+                .where(metric_results_table.c.run_id.in_([r["run_id"] for r in run_rows]))
+            )
+            metric_rows = conn.execute(metric_stmt).mappings().all()
+
+        metrics_by_run: dict[str, dict[str, float]] = {}
+        for m in metric_rows:
+            metrics_by_run.setdefault(m["run_id"], {})[m["metric_name"]] = m["value"]
+
+        runs = []
+        for row in run_rows:
+            run = self._run_row_to_dict(row)
+            run["metric_results"] = metrics_by_run.get(row["run_id"], {})
+            runs.append(run)
+        return runs
+
     def count_runs(self, app_name: str | None = None) -> int:
         stmt = select(func.count()).select_from(evaluation_runs_table)
         if app_name is not None:

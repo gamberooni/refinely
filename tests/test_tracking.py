@@ -5,7 +5,7 @@ import pytest
 from apps.extraction import EXTRACTION_WEIGHTS
 from apps.qa import QA_WEIGHTS
 from crucible.eval.runner import CaseResult
-from crucible.tracking.db import LineageDB
+from crucible.tracking.db import LineageDB, evaluation_runs_table
 
 
 def _case_results(n: int = 3) -> list[CaseResult]:
@@ -118,6 +118,103 @@ def test_best_run_orders_by_score(tmp_path: pytest.TempPathFactory) -> None:
     assert best["aggregate_score"] == pytest.approx(0.9)
 
     assert db.best_run("extraction") is None
+    db.close()
+
+
+def test_list_runs_returns_newest_first_with_metrics_joined(
+    tmp_path: pytest.TempPathFactory,
+) -> None:
+    from datetime import UTC, datetime
+
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+    run_ids = []
+    for i, score in enumerate((0.4, 0.9, 0.6)):
+        run_id = db.record_run(
+            app_name="extraction",
+            dataset_version="extraction_v1",
+            configuration={"temperature": 0.1 + i},
+            aggregate_score=score,
+            metric_results={"exact_match": score, "latency": 1.0},
+            case_results=_case_results(1),
+            weights=EXTRACTION_WEIGHTS,
+            optuna_trial_number=i,
+        )
+        run_ids.append(run_id)
+        with db._engine.begin() as conn:
+            conn.execute(
+                evaluation_runs_table.update()
+                .where(evaluation_runs_table.c.run_id == run_id)
+                .values(created_at=datetime(2026, 1, i + 1, tzinfo=UTC).isoformat())
+            )
+
+    runs = db.list_runs("extraction")
+
+    assert [r["run_id"] for r in runs] == list(reversed(run_ids))
+    assert runs[0]["metric_results"] == {"exact_match": 0.6, "latency": 1.0}
+    assert runs[0]["configuration"] == {"temperature": 2.1}
+    assert runs[0]["optuna_trial_number"] == 2
+    assert runs[0]["aggregate_score"] == pytest.approx(0.6)
+    assert runs[0]["dataset_version"] == "extraction_v1"
+    assert "created_at" in runs[0]
+    db.close()
+
+
+def test_list_runs_respects_limit(tmp_path: pytest.TempPathFactory) -> None:
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+    for score in (0.4, 0.9, 0.6, 0.7, 0.5):
+        db.record_run(
+            app_name="qa",
+            dataset_version="qa_v1",
+            configuration={"temperature": 0.1},
+            aggregate_score=score,
+            metric_results={"fuzzy_match": score},
+            case_results=_case_results(1),
+            weights=QA_WEIGHTS,
+        )
+
+    runs = db.list_runs("qa", limit=2)
+
+    assert len(runs) == 2
+    assert [r["aggregate_score"] for r in runs] == [pytest.approx(0.5), pytest.approx(0.7)]
+    db.close()
+
+
+def test_list_runs_empty_for_unknown_app(tmp_path: pytest.TempPathFactory) -> None:
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+    db.record_run(
+        app_name="extraction",
+        dataset_version="extraction_v1",
+        configuration={},
+        aggregate_score=0.5,
+        metric_results={"exact_match": 0.5},
+        case_results=_case_results(1),
+        weights=EXTRACTION_WEIGHTS,
+    )
+
+    assert db.list_runs("rag") == []
+    db.close()
+
+
+def test_list_runs_parses_configuration_json(tmp_path: pytest.TempPathFactory) -> None:
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+    config = {"temperature": 0.7, "system_prompt_variant": "strict"}
+    db.record_run(
+        app_name="extraction",
+        dataset_version="extraction_v1",
+        configuration=config,
+        aggregate_score=0.8,
+        metric_results={"exact_match": 0.8},
+        case_results=_case_results(1),
+        weights=EXTRACTION_WEIGHTS,
+    )
+
+    runs = db.list_runs("extraction")
+
+    assert runs[0]["configuration"] == config
     db.close()
 
 

@@ -1,11 +1,11 @@
 ## 1. Dependency
 
-- [ ] 1.1 Add `rich` to `[project.dependencies]` in `pyproject.toml` and sync the lockfile (`uv sync --group dev`)
+- [x] 1.1 Add `rich` to `[project.dependencies]` in `pyproject.toml` and sync the lockfile (`uv sync --group dev`)
 
 ## 2. LineageDB read API
 
-- [ ] 2.1 Add `list_runs(app_name: str, limit: int = 50) -> list[dict]` to `LineageDB` in `src/crucible/tracking/db.py`: returns runs ordered by `created_at` DESC (limit applied), each dict with run_id, app_name, dataset_version, configuration (parsed), optuna_trial_number, aggregate_score, created_at, and `metric_results` (dict pivoted from `metric_results` table, Python-side join of two selects)
-- [ ] 2.2 Add tests in `tests/test_tracking.py`: `list_runs` returns newest-first with metric values joined; respects limit; returns empty list for unknown app; parses configuration JSON
+- [x] 2.1 Add `list_runs(app_name: str, limit: int = 50) -> list[dict]` to `LineageDB` in `src/crucible/tracking/db.py`: returns runs ordered by `created_at` DESC (limit applied), each dict with run_id, app_name, dataset_version, configuration (parsed), optuna_trial_number, aggregate_score, created_at, and `metric_results` (dict pivoted from `metric_results` table, Python-side join of two selects)
+- [x] 2.2 Add tests in `tests/test_tracking.py`: `list_runs` returns newest-first with metric values joined; respects limit; returns empty list for unknown app; parses configuration JSON
 
 ## 3. Reporting module
 
