@@ -1,6 +1,10 @@
 """Click-based command-line interface for crucible."""
 
+import math
+
 import click
+from rich.console import Console
+from rich.panel import Panel
 
 from crucible.core.settings import Settings
 from crucible.eval.datasets import EvalCase, dataset_version, load_dataset
@@ -9,6 +13,14 @@ from crucible.llm.client import AsyncOpenAIClient, LLMClient
 from crucible.optimize.objective import build_objective
 from crucible.optimize.study import run_study
 from crucible.registry import AppRegistration, discover_apps, get_registration, registered_apps
+from crucible.reporting.export import export_runs_csv, export_runs_json
+from crucible.reporting.render import (
+    best_compile_panel,
+    best_run_panel,
+    cases_table,
+    compare_table,
+    runs_table,
+)
 from crucible.tracking.db import LineageDB
 
 discover_apps()
@@ -84,9 +96,18 @@ def evaluate(app: str, program: str | None) -> None:
             weights=registration.weights,
         )
 
-    click.echo(f"aggregate_score: {result.aggregate_score:.4f}")
-    click.echo(f"metric_results: {result.metric_results}")
-    click.echo(f"run recorded: {run_id}")
+    Console().print(
+        Panel(
+            "\n".join(
+                [
+                    f"aggregate_score: {result.aggregate_score:.4f}",
+                    f"metric_results: {result.metric_results}",
+                    f"run recorded: {run_id}",
+                ]
+            ),
+            title="evaluate",
+        )
+    )
 
 
 @main.command()
@@ -115,8 +136,17 @@ def optimize(app: str, trials: int) -> None:
     study = run_study(app, objective, settings.lineage_db_path, n_trials=trials)
 
     best = study.best_trial
-    click.echo(f"best trial #{best.number}: aggregate_score = {best.value:.4f}")
-    click.echo(f"best config: {best.params}")
+    Console().print(
+        Panel(
+            "\n".join(
+                [
+                    f"best trial #{best.number}: aggregate_score = {best.value:.4f}",
+                    f"best config: {best.params}",
+                ]
+            ),
+            title="optimize",
+        )
+    )
 
 
 @main.command()
@@ -220,10 +250,188 @@ def compile(
             compiled_score=result.compiled_score,
         )
 
-    click.echo(f"baseline_score:  {result.baseline_score:.4f}")
-    click.echo(f"compiled_score:  {result.compiled_score:.4f}")
-    click.echo(f"artifact:        {result.artifact_path}")
-    click.echo(f"compile recorded: {compile_id}")
+    Console().print(
+        Panel(
+            "\n".join(
+                [
+                    f"baseline_score:  {result.baseline_score:.4f}",
+                    f"compiled_score:  {result.compiled_score:.4f}",
+                    f"artifact:        {result.artifact_path}",
+                    f"compile recorded: {compile_id}",
+                ]
+            ),
+            title="compile",
+        )
+    )
+
+
+@main.command()
+@click.argument("app", type=click.Choice(registered_apps()))
+@click.option(
+    "--run",
+    "run_id",
+    default=None,
+    type=str,
+    help="Show per-case results for this run id instead of the runs table.",
+)
+@click.option(
+    "--limit",
+    default=50,
+    show_default=True,
+    type=int,
+    help="Max number of runs to show.",
+)
+@click.option(
+    "--page",
+    default=1,
+    show_default=True,
+    type=int,
+    help="Page of run history to show (1-based, newest first).",
+)
+@click.option(
+    "--pager",
+    is_flag=True,
+    help="Pipe output through the system pager (less) for scrolling.",
+)
+def show(app: str, run_id: str | None, limit: int, page: int, pager: bool) -> None:
+    """Show APP's run history, best summaries, or a run's per-case results."""
+    registration = get_registration(app)
+    settings = Settings()
+    console = Console()
+    with LineageDB(settings.lineage_db_path) as db:
+        if run_id is not None:
+            if not db.run_exists(run_id):
+                raise click.ClickException(f"Run {run_id!r} not found for app {app!r}")
+            cases = db.case_results_for_run(run_id)
+            if pager:
+                with console.pager(styles=True):
+                    console.print(cases_table(cases))
+            else:
+                console.print(cases_table(cases))
+            return
+        total = db.count_runs(registration.name)
+        if total == 0:
+            console.print(f"No runs recorded for app {app!r}.")
+            return
+        if pager:
+            runs = db.list_runs(registration.name, limit=total)
+            best_run = db.best_run(registration.name)
+            best_compile = db.best_compile(registration.name)
+            with console.pager(styles=True):
+                console.print(runs_table(runs))
+                if best_run is not None:
+                    console.print(best_run_panel(best_run))
+                if best_compile is not None:
+                    console.print(best_compile_panel(best_compile))
+            return
+        offset = (page - 1) * limit
+        if offset >= total:
+            raise click.ClickException(
+                f"Page {page} is out of range for app {app!r} (only {total} runs)."
+            )
+        runs = db.list_runs(registration.name, limit=limit, offset=offset)
+        console.print(runs_table(runs))
+        pages = math.ceil(total / limit)
+        if pages > 1:
+            console.print(f"page {page} of {pages}")
+        best_run = db.best_run(registration.name)
+        if best_run is not None:
+            console.print(best_run_panel(best_run))
+        best_compile = db.best_compile(registration.name)
+        if best_compile is not None:
+            console.print(best_compile_panel(best_compile))
+
+
+@main.command()
+@click.argument("app", type=click.Choice(registered_apps()))
+@click.option(
+    "--baseline",
+    default=None,
+    type=str,
+    help="Compare every run against this run id instead of the previous run.",
+)
+@click.option(
+    "--page",
+    default=1,
+    show_default=True,
+    type=int,
+    help="Page of runs to compare (1-based, chronological).",
+)
+@click.option(
+    "--page-size",
+    default=50,
+    show_default=True,
+    type=int,
+    help="Max number of runs per compare page.",
+)
+@click.option(
+    "--pager",
+    is_flag=True,
+    help="Pipe output through the system pager (less) for scrolling.",
+)
+def compare(app: str, baseline: str | None, page: int, page_size: int, pager: bool) -> None:
+    """Compare APP's runs with per-metric deltas against a baseline."""
+    registration = get_registration(app)
+    settings = Settings()
+    console = Console()
+    with LineageDB(settings.lineage_db_path) as db:
+        total = db.count_runs(registration.name)
+        if total == 0:
+            console.print(f"No runs recorded for app {app!r}.")
+            return
+        if baseline is not None and not db.run_exists(baseline):
+            raise click.ClickException(f"Baseline run {baseline!r} not found for app {app!r}")
+        baseline_run = db.get_run(baseline) if baseline is not None else None
+        if pager:
+            runs = db.list_runs(registration.name, limit=total)
+            with console.pager(styles=True):
+                console.print(
+                    compare_table(list(reversed(runs)), baseline_run=baseline_run)
+                )
+            return
+        if (page - 1) * page_size >= total:
+            raise click.ClickException(
+                f"Page {page} is out of range for app {app!r} (only {total} runs)."
+            )
+        offset = max(0, total - page * page_size)
+        limit = min(page_size, total - (page - 1) * page_size)
+        runs = db.list_runs(registration.name, limit=limit, offset=offset)
+        console.print(compare_table(list(reversed(runs)), baseline_run=baseline_run))
+        pages = math.ceil(total / page_size)
+        if pages > 1:
+            console.print(f"page {page} of {pages}")
+
+
+@main.command()
+@click.argument("app", type=click.Choice(registered_apps()))
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["csv", "json"]),
+    default="csv",
+    show_default=True,
+    help="Export format.",
+)
+@click.option(
+    "--output",
+    "output",
+    default=None,
+    type=click.Path(),
+    help="Output file path (default: <app>_runs.csv or <app>_runs.json in cwd).",
+)
+def export(app: str, fmt: str, output: str | None) -> None:
+    """Export APP's runs and metric values to a CSV or JSON file."""
+    registration = get_registration(app)
+    settings = Settings()
+    console = Console()
+    output_path = output or f"{registration.name}_runs.{fmt}"
+    with LineageDB(settings.lineage_db_path) as db:
+        runs = db.list_runs(registration.name)
+    if fmt == "csv":
+        export_runs_csv(runs, output_path)
+    else:
+        export_runs_json(runs, output_path)
+    console.print(f"Wrote {len(runs)} runs to {output_path}")
 
 
 if __name__ == "__main__":
