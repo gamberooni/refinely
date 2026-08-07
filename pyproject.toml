@@ -32,9 +32,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/gamberooni/crucible"
-Repository = "https://github.com/gamberooni/crucible"
-Issues = "https://github.com/gamberooni/crucible/issues"
+Homepage = "https://github.com/gamberooni/refinely"
+Repository = "https://github.com/gamberooni/refinely"
+Issues = "https://github.com/gamberooni/refinely/issues"
 
 [project.optional-dependencies]
 dspy = [
