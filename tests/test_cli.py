@@ -85,9 +85,7 @@ def _seed_runs(db_path: Path, scores: list[float], *, cases: bool = False) -> li
                 evaluation_runs_table.update()
                 .where(evaluation_runs_table.c.run_id == run_id)
                 .values(
-                    created_at=(
-                        datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=i)
-                    ).isoformat()
+                    created_at=(datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=i)).isoformat()
                 )
             )
     db.close()
@@ -868,9 +866,7 @@ def test_compare_diff_config_identical_configs(
         )
     db.close()
 
-    result = _invoke(
-        ["compare", "extraction", "--diff-config", "--baseline", run_ids[0][:8]]
-    )
+    result = _invoke(["compare", "extraction", "--diff-config", "--baseline", run_ids[0][:8]])
 
     assert result.exit_code == 0, result.output
     assert "configurations are identical (no changes)" in result.output

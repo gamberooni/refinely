@@ -91,28 +91,36 @@ class TestScaffold:
 
 class TestDoctor:
     def test_run_checks_default_has_no_network(self, monkeypatch) -> None:
-        monkeypatch.setattr("refinely.devtools.doctor._check_apps", lambda: CheckResult("apps", True, "ok"))
+        monkeypatch.setattr(
+            "refinely.devtools.doctor._check_apps", lambda: CheckResult("apps", True, "ok")
+        )
         monkeypatch.setattr(
             "refinely.devtools.doctor._check_datasets", lambda: CheckResult("datasets", True, "ok")
         )
         monkeypatch.setattr(
             "refinely.devtools.doctor._check_schema", lambda s: CheckResult("schema", True, "ok")
         )
-        monkeypatch.setattr("refinely.devtools.doctor._check_env", lambda s: CheckResult("env", True, "ok"))
+        monkeypatch.setattr(
+            "refinely.devtools.doctor._check_env", lambda s: CheckResult("env", True, "ok")
+        )
 
         results = run_checks(Settings(), network=False)
         names = {r.name for r in results}
         assert "network" not in names
 
     def test_run_checks_network_only_when_flagged(self, monkeypatch) -> None:
-        monkeypatch.setattr("refinely.devtools.doctor._check_apps", lambda: CheckResult("apps", True, "ok"))
+        monkeypatch.setattr(
+            "refinely.devtools.doctor._check_apps", lambda: CheckResult("apps", True, "ok")
+        )
         monkeypatch.setattr(
             "refinely.devtools.doctor._check_datasets", lambda: CheckResult("datasets", True, "ok")
         )
         monkeypatch.setattr(
             "refinely.devtools.doctor._check_schema", lambda s: CheckResult("schema", True, "ok")
         )
-        monkeypatch.setattr("refinely.devtools.doctor._check_env", lambda s: CheckResult("env", True, "ok"))
+        monkeypatch.setattr(
+            "refinely.devtools.doctor._check_env", lambda s: CheckResult("env", True, "ok")
+        )
         monkeypatch.setattr(
             "refinely.devtools.doctor._check_network",
             lambda s: CheckResult("network", True, "reachable"),
@@ -173,7 +181,7 @@ class TestDatasetStats:
 
 
 class TestDeveloperCli:
-    def _invoke(self, args: list[str]) -> "object":
+    def _invoke(self, args: list[str]) -> object:
         return CliRunner().invoke(main, args, env={"COLUMNS": "200"})
 
     def test_new_app_command(self, tmp_path: Path, monkeypatch) -> None:
@@ -184,7 +192,7 @@ class TestDeveloperCli:
 
         assert result.exit_code == 0, result.output
         assert "Created" in result.output
-        assert 'refinely.apps' in result.output
+        assert "refinely.apps" in result.output
         assert 'summarize = "apps.summarize"' in result.output
         assert (tmp_path / "apps" / "summarize.py").exists()
         assert (tmp_path / "datasets" / "summarize_v1.json").exists()

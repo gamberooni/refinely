@@ -58,4 +58,3 @@ After an optimization study completes, the system SHALL write the best trial's c
 #### Scenario: No successful trials
 - **WHEN** an `optimize` run completes with no successful trials
 - **THEN** the CLI SHALL exit with a clear error and SHALL NOT write `opt-best.json`
-

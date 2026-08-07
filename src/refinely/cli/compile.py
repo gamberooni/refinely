@@ -67,7 +67,9 @@ def compile(
 
     if registration.dspy_factory is None:
         supporting = ", ".join(
-            name for name in registered_apps() if context.get_registration(name).dspy_factory is not None
+            name
+            for name in registered_apps()
+            if context.get_registration(name).dspy_factory is not None
         )
         raise click.ClickException(
             f"App {app!r} does not declare a DSPy program. "

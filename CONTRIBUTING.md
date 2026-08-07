@@ -112,6 +112,7 @@ src/refinely/
     devtools.py              # new app / doctor / dataset
     __main__.py              # python -m refinely.cli support
   config.py                  # named config storage: configs/<app>/<name>.json, .default pointer, opt-best (ConfigError)
+  data.py                    # bundled_dataset — resolves demo datasets from the wheel (refinely/datasets) or repo-root datasets/
   registry.py                # AppRegistration + register_app / get_registration / registered_apps / discover_apps
   devtools/
     scaffold.py              # write_app — templates for apps/<name>.py + dataset stub (ScaffoldError)

@@ -76,4 +76,3 @@ The system SHALL support listing, inspecting, and removing named configs per app
 - **THEN** the file `configs/<app>/<name>.json` SHALL be deleted
 - **WHEN** the removed config was the app's default
 - **THEN** the default pointer SHALL be cleared
-

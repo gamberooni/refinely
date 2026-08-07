@@ -128,4 +128,3 @@ When `compare` is invoked with `--cases`, the output SHALL include a paired per-
 #### Scenario: A run with no case results
 - **WHEN** a user runs `refinely compare <app> --cases` and one of the two runs has no recorded case results
 - **THEN** the CLI SHALL print a message stating per-case comparison is not possible for those runs
-

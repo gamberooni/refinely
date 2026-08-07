@@ -1,12 +1,25 @@
 [project]
 name = "refinely"
-version = "0.1.0"
 description = "Minimal AI application evaluation & optimization prototype"
 readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+dynamic = ["version"]
 authors = [
     { name = "gamberooni", email = "zhaoyoong@gmail.com" }
 ]
-requires-python = ">=3.11"
+keywords = ["llm", "evaluation", "optimization", "optuna", "rag", "qa", "extraction"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "openai",
     "pydantic>=2",
@@ -16,6 +29,17 @@ dependencies = [
     "click",
     "sqlalchemy>=2.0",
     "rich",
+]
+
+[project.urls]
+Homepage = "https://github.com/gamberooni/crucible"
+Repository = "https://github.com/gamberooni/crucible"
+Issues = "https://github.com/gamberooni/crucible/issues"
+
+[project.optional-dependencies]
+dspy = [
+    "dspy>=3.1",
+    "litellm<1.92",
 ]
 
 [project.scripts]
@@ -36,11 +60,17 @@ dspy = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/refinely", "apps"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"datasets" = "refinely/datasets"
+
+[tool.hatch.version]
+source = "vcs"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

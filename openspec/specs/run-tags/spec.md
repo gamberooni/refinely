@@ -39,4 +39,3 @@ The system SHALL NOT provide a mechanism to re-tag an existing run after it has 
 #### Scenario: No retagging command
 - **WHEN** a user inspects the CLI's available commands
 - **THEN** the CLI SHALL expose no subcommand or flag for modifying an existing run's tags
-

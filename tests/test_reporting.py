@@ -26,7 +26,7 @@ def _run(
     run_id: str,
     aggregate_score: float,
     metric_results: dict[str, float],
-    *, 
+    *,
     created_at: str = "2026-01-01T00:00:00+00:00",
     trial: int | None = None,
     configuration: dict | None = None,
@@ -207,7 +207,8 @@ def test_export_runs_csv_includes_configuration_column(tmp_path) -> None:
 
     export_runs_csv(runs, path)
 
-    rows = list(csv.reader(open(path, encoding="utf-8")))
+    with open(path, encoding="utf-8") as fh:
+        rows = list(csv.reader(fh))
     assert rows[0] == [
         "run_id",
         "created_at",
@@ -228,7 +229,8 @@ def test_export_runs_csv_blanks_trial_and_missing_metric(tmp_path) -> None:
 
     export_runs_csv(runs, path)
 
-    rows = list(csv.reader(open(path, encoding="utf-8")))
+    with open(path, encoding="utf-8") as fh:
+        rows = list(csv.reader(fh))
     assert rows[1][3] == ""
     assert rows[1][5] == "0.5"
 
