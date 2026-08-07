@@ -55,4 +55,3 @@ The system SHALL provide `refinely dataset stats <app>` that renders, for the ap
 #### Scenario: Dataset that fails to parse
 - **WHEN** a user runs `refinely dataset stats <app>` and the dataset file is missing, not valid JSON, or contains cases failing `load_dataset` validation
 - **THEN** the CLI SHALL exit with a clear error naming the file and the failing case, without printing statistics
-

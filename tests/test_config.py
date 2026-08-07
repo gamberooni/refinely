@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any, ClassVar
 
 import pytest
 from click.testing import CliRunner
@@ -132,7 +133,9 @@ class TestConfigStorage:
 
 
 class TestConfigCli:
-    def test_save_reports_path(self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_save_reports_path(
+        self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         result = _invoke(
             ["config", "save", "my-run", "--app", "extraction", "--config", '{"temperature": 0.4}'],
             monkeypatch,
@@ -178,21 +181,29 @@ class TestConfigCli:
         assert " extraction/b.json" in result.output
         assert "default: a" in result.output
 
-    def test_show_prints_json_contents(self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_show_prints_json_contents(
+        self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         save_config("extraction", "my-run", {"temperature": 0.4})
         result = _invoke(["config", "show", "my-run", "--app", "extraction"], monkeypatch, tmp_path)
         assert result.exit_code == 0, result.output
         assert json.loads(result.output) == {"temperature": 0.4}
 
-    def test_rm_deletes_file(self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_rm_deletes_file(
+        self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         save_config("extraction", "my-run", {})
         result = _invoke(["config", "rm", "my-run", "--app", "extraction"], monkeypatch, tmp_path)
         assert result.exit_code == 0, result.output
         assert not (config_path("extraction", "my-run")).exists()
 
-    def test_default_set_and_clear(self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_default_set_and_clear(
+        self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         save_config("extraction", "my-run", {})
-        result = _invoke(["config", "default", "extraction", "--set", "my-run"], monkeypatch, tmp_path)
+        result = _invoke(
+            ["config", "default", "extraction", "--set", "my-run"], monkeypatch, tmp_path
+        )
         assert result.exit_code == 0, result.output
         assert get_default("extraction") == "my-run"
         result = _invoke(["config", "default", "extraction", "--clear"], monkeypatch, tmp_path)
@@ -201,7 +212,9 @@ class TestConfigCli:
 
 
 class TestConfigResolution:
-    def test_evaluate_accepts_config_name(self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_evaluate_accepts_config_name(
+        self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         save_config("extraction", "my-run", {"temperature": 0.4})
         monkeypatch.setattr(
             "refinely.cli.context.get_registration",
@@ -221,7 +234,9 @@ class TestConfigResolution:
         assert result.exit_code == 1
         assert "Config 'nope' not found for app 'extraction'" in result.output
 
-    def test_evaluate_invalid_json_still_errors(self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_evaluate_invalid_json_still_errors(
+        self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         result = _invoke(["evaluate", "extraction", "--config", "{not json"], monkeypatch, tmp_path)
         assert result.exit_code == 1
         assert "Invalid --config JSON" in result.output
@@ -244,7 +259,9 @@ class TestConfigResolution:
 
 
 class TestModelAxis:
-    def test_evaluate_records_model_override(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_evaluate_records_model_override(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
         monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
         monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
@@ -255,7 +272,9 @@ class TestModelAxis:
         assert db.list_runs("extraction")[0].model_name == "gpt-4o"
         db.close()
 
-    def test_evaluate_records_default_model(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_evaluate_records_default_model(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
         monkeypatch.setenv("REFINELY_MODEL_NAME", "default-model")
         monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
@@ -267,11 +286,15 @@ class TestModelAxis:
         assert db.list_runs("extraction")[0].model_name == "default-model"
         db.close()
 
-    def test_evaluate_models_fanout_records_each(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_evaluate_models_fanout_records_each(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
         monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
         monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
-        result = _invoke(["evaluate", "extraction", "--models", "gpt-4o,claude-3"], monkeypatch, tmp_path)
+        result = _invoke(
+            ["evaluate", "extraction", "--models", "gpt-4o,claude-3"], monkeypatch, tmp_path
+        )
         assert result.exit_code == 0, result.output
         db = LineageDB(tmp_path / "lineage.db")
         db.init_schema()
@@ -279,7 +302,9 @@ class TestModelAxis:
         assert models == ["claude-3", "gpt-4o"]
         db.close()
 
-    def test_evaluate_models_empty_errors(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_evaluate_models_empty_errors(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
         monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
         monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
@@ -287,7 +312,9 @@ class TestModelAxis:
         assert result.exit_code == 1
         assert "--models must be a non-empty comma-separated list" in result.output
 
-    def test_evaluate_model_and_models_mutually_exclusive(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_evaluate_model_and_models_mutually_exclusive(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
         monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
         monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
@@ -381,7 +408,9 @@ class TestModelAxis:
 
 
 class TestOptimizeAutosave:
-    def test_optimize_saves_best_config(self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_optimize_saves_best_config(
+        self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
         monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
         monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
@@ -394,9 +423,9 @@ class TestOptimizeAutosave:
 
 class _FakeStudy:
     class _Trial:
-        number = 3
-        value = 0.8
-        params = {"temperature": 0.7}
+        number: ClassVar[int] = 3
+        value: ClassVar[float] = 0.8
+        params: ClassVar[dict] = {"temperature": 0.7}
 
-    trials = [_Trial()]
-    best_trial = _Trial()
+    trials: ClassVar[list] = [_Trial()]
+    best_trial: ClassVar[Any] = _Trial()

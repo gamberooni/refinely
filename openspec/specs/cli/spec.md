@@ -176,4 +176,3 @@ The CLI SHALL support a `dataset stats` subcommand (`refinely dataset stats <app
 #### Scenario: Running dataset stats
 - **WHEN** a user runs `refinely dataset stats <app>`
 - **THEN** the CLI SHALL print the dataset's case count, file size, shape summaries, and malformed-case report (or a clear parse error naming the file and failing case)
-

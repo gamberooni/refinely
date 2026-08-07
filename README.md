@@ -4,7 +4,16 @@ Evaluate and optimize LLM application configurations. Refinely runs a configurab
 
 Built as a greenfield prototype: three toy apps (extraction, QA, RAG), real LLM calls, spec-driven via OpenSpec.
 
-## Quickstart
+## Install
+
+```bash
+pip install refinely          # or: uv add refinely
+pip install 'refinely[dspy]'  # optional: DSPy compile support (or: uv add refinely --extra dspy)
+```
+
+The demo apps and their datasets ship inside the wheel. Configuring the LLM is the same as below.
+
+## Quickstart (from a checkout)
 
 ```bash
 uv sync --group dev
@@ -99,7 +108,7 @@ sqlite3 lineage.db "SELECT app_name, optuna_trial_number, aggregate_score FROM e
 - **QA** (`qa_v1.json`) — retrieval-lite question answering over a fixed corpus; config: `temperature`, `system_prompt_variant`, `top_k` (1–5).
 - **RAG** (`rag_v1.json`) — 4-stage pipeline: query expansion (LLM, optional) → deterministic retrieval → reranking (LLM, optional) → answer generation (LLM); config: `temperature`, `system_prompt_variant`, `retrieval_strategy` (`keyword`/`hybrid`), `top_k` (1–6), `query_expansion`, `rerank`. Output includes `retrieved_indices` and `cited_indices` for retrieval/citation scoring.
 
-Datasets use a versioned wrapper format: `{"version": "...", "cases": [...]}` (QA and RAG also carry a `corpus`; RAG cases expect `source_indices` in their expected answers).
+Datasets use a versioned wrapper format: `{"version": "...", "cases": [...]}` (QA and RAG also carry a `corpus`; RAG cases expect `source_indices` in their expected answers). The demo datasets are bundled into the wheel as `refinely/datasets/` and resolved via `bundled_dataset` (`src/refinely/data.py`); in a checkout they resolve to the repo-root `datasets/` directory.
 
 ## How evaluation works
 
@@ -119,6 +128,7 @@ src/refinely/
   core/        exceptions, settings
   llm/         AsyncOpenAIClient (JSON-schema-forced structured output, retries), TokenUsage
   config.py    named configs: configs/<app>/<name>.json + .default pointer (config CLI group)
+  data.py      bundled_dataset: resolves demo datasets from the wheel (refinely/datasets) or repo-root datasets/
   eval/        EvalCase + dataset loaders + dataset_stats, generic metrics (fuzzy match, LLM judge, latency, cost), EvaluationRunner
   optimize/    Optuna objective + study runner (search spaces registered per app)
   tracking/    LineageDB (SQLite schema + record/query helpers; dspy_compiles table for compile lineage)

@@ -77,11 +77,11 @@ register_app(
 )
 '''
 
-_DATASET_TEMPLATE = '''{{
+_DATASET_TEMPLATE = """{{
   "version": "{name}_v1",
   "cases": []
 }}
-'''
+"""
 
 
 class ScaffoldError(EvalError):
@@ -125,9 +125,7 @@ def write_app(name: str, dataset_path: Path | None = None) -> tuple[Path, Path |
 
     app_path.parent.mkdir(parents=True, exist_ok=True)
     app_name = "".join(part.capitalize() for part in name.split("_"))
-    dataset_file = (
-        dataset_path.name if dataset_path is not None else dataset_stub_path(name).name
-    )
+    dataset_file = dataset_path.name if dataset_path is not None else dataset_stub_path(name).name
     source = _APP_TEMPLATE.format(
         name=name,
         AppName=app_name,

@@ -78,7 +78,6 @@ def compile_program(
     `CompiledProgramAdapter`) are both scored through `EvaluationRunner` on the
     same validation split so the artifact's improvement is measurable.
     """
-    dspy = _dspy()
     settings = settings or Settings()
     registration = get_registration(app_name)
     if registration.dspy_factory is None:
@@ -89,6 +88,7 @@ def compile_program(
             f"App {app_name!r} does not declare a DSPy program (dspy_factory); "
             f"only these apps support `compile`: {supporting or 'none'}"
         )
+    dspy = _dspy()
     spec: DspyProgramSpec = registration.dspy_factory(settings)
 
     if metrics is None:

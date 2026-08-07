@@ -65,7 +65,9 @@ def evaluate(
 
     if program is not None and registration.dspy_factory is None:
         supporting = ", ".join(
-            name for name in registered_apps() if context.get_registration(name).dspy_factory is not None
+            name
+            for name in registered_apps()
+            if context.get_registration(name).dspy_factory is not None
         )
         raise click.ClickException(
             f"App {app!r} does not declare a DSPy program. "
@@ -77,7 +79,9 @@ def evaluate(
     if models is not None:
         model_list = [m.strip() for m in models.split(",")]
         if not models.strip() or not model_list or any(m == "" for m in model_list):
-            raise click.ClickException("--models must be a non-empty comma-separated list of models")
+            raise click.ClickException(
+                "--models must be a non-empty comma-separated list of models"
+            )
         for model in model_list:
             _run_evaluation(
                 registration,
@@ -105,9 +109,7 @@ def evaluate(
     )
 
 
-def _resolve_config(
-    app: str, config_json: str | None, registration: AppRegistration
-) -> dict:
+def _resolve_config(app: str, config_json: str | None, registration: AppRegistration) -> dict:
     """Resolve --config: inline JSON object, named config, or pointer-aware default."""
     if config_json is None:
         try:

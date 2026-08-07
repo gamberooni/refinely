@@ -31,6 +31,7 @@ from refinely.eval.metrics import CostMetric, FuzzyMatchMetric, LatencyMetric, M
 from refinely.llm.client import LLMClient
 from refinely.registry import AppRegistration, register_app
 
+
 def sample_myapp_config(trial):
     return {
         "temperature": trial.suggest_float("temperature", 0.0, 1.0),
@@ -38,22 +39,32 @@ def sample_myapp_config(trial):
         "mode": trial.suggest_categorical("mode", ["fast", "deep"]),
     }
 
+
 MYAPP_DEFAULT_CONFIG = {"temperature": 0.0, "top_k": 3, "mode": "fast"}
 MYAPP_WEIGHTS = {"fuzzy_match": 0.4, "latency": 0.3, "cost": 0.3}
+
 
 def _metrics_factory(client: LLMClient, settings: Settings) -> list[Metric]:
     return [FuzzyMatchMetric(), LatencyMetric(), CostMetric()]
 
-register_app(AppRegistration(
-    name="myapp",
-    build_adapter=lambda client, settings: MyApp(client, settings),
-    metrics_factory=_metrics_factory,
-    search_space=sample_myapp_config,
-    default_config=MYAPP_DEFAULT_CONFIG,
-    weights=MYAPP_WEIGHTS,
-    dataset_path=Path(__file__).resolve().parents[3] / "datasets" / "myapp_v1.json",
-))
+
+register_app(
+    AppRegistration(
+        name="myapp",
+        build_adapter=lambda client, settings: MyApp(client, settings),
+        metrics_factory=_metrics_factory,
+        search_space=sample_myapp_config,
+        default_config=MYAPP_DEFAULT_CONFIG,
+        weights=MYAPP_WEIGHTS,
+        dataset_path=Path(__file__).resolve().parents[3] / "datasets" / "myapp_v1.json",
+    )
+)
 ```
+
+`dataset_path` is any path you control. If your app should ship its dataset
+inside the wheel (like the built-in demo apps do), use `bundled_dataset` from
+`refinely.data` instead — it resolves from `refinely/datasets/` when installed
+and falls back to a repo-root `datasets/` directory in a checkout.
 
 Then declare the module as an entry point in group `refinely.apps` (the value is
 the module path; importing it calls `register_app`):
@@ -78,12 +89,12 @@ line to add — it never edits `pyproject.toml` itself.
 
 ### 1. Depend on refinely
 
-Add an editable path dependency from your project (or any install method that
-puts `refinely` on the path — it is a plain importable package):
+Add it as a normal dependency (or an editable path dependency for local dev —
+either way `refinely` is a plain importable package):
 
 ```bash
-uv add --editable /path/to/refinely
-uv sync --group dev   # optuna + SQLite deps if your project doesn't install extras
+uv add refinely             # or: pip install refinely
+uv sync --group dev         # optuna + SQLite deps if your project doesn't install extras
 ```
 
 Your own codebase keeps everything else — app, data, runtime config — at home.
@@ -93,6 +104,7 @@ Your own codebase keeps everything else — app, data, runtime config — at hom
 ```python
 import time
 from refinely.llm.usage import Result, TokenUsage
+
 
 class MyApp:
     def __init__(self, pipeline, settings):
@@ -105,11 +117,12 @@ class MyApp:
         self._settings.temperature = config["temperature"]
         self._settings.top_k = config["top_k"]
         started = time.perf_counter()
-        output, usage = self._pipeline.run(input)      # your code
+        output, usage = self._pipeline.run(input)  # your code
         return Result(
             output=output,
-            token_usage=TokenUsage(prompt_tokens=usage["prompt"],
-                                   completion_tokens=usage["completion"]),
+            token_usage=TokenUsage(
+                prompt_tokens=usage["prompt"], completion_tokens=usage["completion"]
+            ),
             latency_seconds=time.perf_counter() - started,
         )
 ```
@@ -124,6 +137,7 @@ across the calls, so the recorded `Result` reflects the full execution.
 ```python
 import optuna
 
+
 def sample_myapp_config(trial: optuna.Trial) -> dict:
     return {
         "temperature": trial.suggest_float("temperature", 0.0, 1.0),
@@ -131,8 +145,9 @@ def sample_myapp_config(trial: optuna.Trial) -> dict:
         "mode": trial.suggest_categorical("mode", ["fast", "deep"]),
     }
 
+
 DEFAULT_CONFIG = {"temperature": 0.0, "top_k": 3, "mode": "fast"}
-WEIGHTS = {"fuzzy_match": 0.4, "latency": 0.3, "cost": 0.3}   # must sum to 1.0
+WEIGHTS = {"fuzzy_match": 0.4, "latency": 0.3, "cost": 0.3}  # must sum to 1.0
 ```
 
 ### 4. Build metrics
@@ -140,16 +155,23 @@ WEIGHTS = {"fuzzy_match": 0.4, "latency": 0.3, "cost": 0.3}   # must sum to 1.0
 Reuse the generic metrics shipped with refinely, or implement your own:
 
 ```python
-from refinely.eval.metrics import (CostMetric, LatencyMetric, LLMJudgeMetric,
-                                   FuzzyMatchMetric, Metric, MetricResult)
+from refinely.eval.metrics import (
+    CostMetric,
+    LatencyMetric,
+    LLMJudgeMetric,
+    FuzzyMatchMetric,
+    Metric,
+    MetricResult,
+)
+
 
 class MyPrecisionMetric(Metric):
     """Deterministic app-specific metric using your own scoring code."""
 
-    name = "my_precision"   # must match the weight-scheme key
+    name = "my_precision"  # must match the weight-scheme key
 
     def evaluate(self, case, output) -> MetricResult:
-        precision = compute_precision(case.expected, output)   # your code
+        precision = compute_precision(case.expected, output)  # your code
         return MetricResult(metric_name=self.name, value=precision)
         # Note: keyword args — MetricResult is a pydantic model.
 ```
@@ -166,7 +188,7 @@ class MyPrecisionMetric(Metric):
 ```python
 from refinely.eval.datasets import EvalCase, load_dataset
 
-cases = load_dataset("datasets/myapp_v1.json")          # versioned JSON file
+cases = load_dataset("datasets/myapp_v1.json")  # versioned JSON file
 # or build in code:
 cases = [EvalCase(id="c1", input={"question": "..."}, expected={"answer": "..."})]
 ```
@@ -184,12 +206,12 @@ from refinely.optimize.study import run_study
 
 objective = build_objective(
     app_name="myapp",
-    app=app,                       # your app object (duck-typed execute(input, config) -> Result)
+    app=app,  # your app object (duck-typed execute(input, config) -> Result)
     dataset=cases,
     dataset_version="myapp_v1",
     lineage_db_path=lineage_path,  # shared SQLite file (lineage + Optuna tables)
-    client=judge,                  # LLMClient used by the LLM judge metric
-    metrics=metrics,               # explicit override — defaults come from the registry
+    client=judge,  # LLMClient used by the LLM judge metric
+    metrics=metrics,  # explicit override — defaults come from the registry
     search_space=sample_myapp_config,
     weights=WEIGHTS,
 )
@@ -211,8 +233,8 @@ from refinely.tracking.db import LineageDB
 
 db = LineageDB(lineage_path)
 db.init_schema()
-best = db.best_run("myapp")                  # highest-scoring run + parsed config
-worst_cases = db.case_results_for_run(best["run_id"])   # worst-first per case
+best = db.best_run("myapp")  # highest-scoring run + parsed config
+worst_cases = db.case_results_for_run(best["run_id"])  # worst-first per case
 print(db.count_runs("myapp"))
 ```
 
@@ -283,11 +305,12 @@ def _my_dspy_factory(settings) -> DspyProgramSpec:
 
     def prepare_example(case: EvalCase):
         from refinely.dspy.bridge import CASE_ATTR
+
         ex = dspy.Example(
             question=case.input["question"],
             context=case.input.get("context", ""),
         ).with_inputs("question", "context")
-        ex[CASE_ATTR] = case   # embed the original case for metric scoring
+        ex[CASE_ATTR] = case  # embed the original case for metric scoring
         return ex
 
     def prediction_to_output(pred) -> dict:
@@ -300,15 +323,17 @@ def _my_dspy_factory(settings) -> DspyProgramSpec:
     )
 
 
-register_app(AppRegistration(
-    name="myapp",
-    build_adapter=_build_adapter,
-    metrics_factory=_metrics_factory,
-    search_space=sample_myapp_config,
-    default_config=DEFAULT_CONFIG,
-    weights=WEIGHTS,
-    dspy_factory=_my_dspy_factory,   # optional; omit if you don't want compile
-))
+register_app(
+    AppRegistration(
+        name="myapp",
+        build_adapter=_build_adapter,
+        metrics_factory=_metrics_factory,
+        search_space=sample_myapp_config,
+        default_config=DEFAULT_CONFIG,
+        weights=WEIGHTS,
+        dspy_factory=_my_dspy_factory,  # optional; omit if you don't want compile
+    )
+)
 ```
 
 Then compile and use the artifact:
@@ -324,7 +349,7 @@ Compile lineage is stored in `dspy_compiles` (separate from `evaluation_runs`) a
 ```python
 db = LineageDB(lineage_path)
 db.init_schema()
-best = db.best_compile("myapp")   # highest compiled_score + parsed config
+best = db.best_compile("myapp")  # highest compiled_score + parsed config
 ```
 
 ### Using the compile harness programmatically (Style 2 — library driver)
@@ -341,8 +366,8 @@ result = compile_program(
     dataset_version=dataset_version("path/to/myapp_v1.json"),
     client=client,
     settings=settings,
-    metrics=metrics,          # explicit; defaults to registration.metrics_factory
-    weights=WEIGHTS,          # explicit; defaults to registration.weights
+    metrics=metrics,  # explicit; defaults to registration.metrics_factory
+    weights=WEIGHTS,  # explicit; defaults to registration.weights
     max_examples=30,
     output_dir="./artifacts",
 )

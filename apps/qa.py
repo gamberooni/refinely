@@ -1,6 +1,5 @@
 import asyncio
 import time
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
@@ -8,6 +7,7 @@ from pydantic import BaseModel
 from apps.common import format_snippet_block, retrieve_snippets
 from refinely.core.exceptions import EvalError
 from refinely.core.settings import Settings
+from refinely.data import bundled_dataset
 from refinely.dspy.bridge import CASE_ATTR
 from refinely.dspy.spec import DspyProgramSpec
 from refinely.eval.datasets import EvalCase, load_corpus
@@ -22,7 +22,7 @@ from refinely.llm.client import LLMClient
 from refinely.llm.usage import Result, TokenUsage
 from refinely.registry import AppRegistration, register_app
 
-DATASET_PATH = Path(__file__).resolve().parents[1] / "datasets" / "qa_v1.json"
+DATASET_PATH = bundled_dataset("qa_v1.json")
 
 
 class QAAnswer(BaseModel):

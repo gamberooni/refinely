@@ -30,8 +30,10 @@ def _check_apps() -> CheckResult:
     apps = discover_apps()
     if not apps:
         return CheckResult(
-            "apps", False, "no apps discovered",
-            "declare an entry point under [project.entry-points.\"refinely.apps\"] "
+            "apps",
+            False,
+            "no apps discovered",
+            'declare an entry point under [project.entry-points."refinely.apps"] '
             "in pyproject.toml, or run 'refinely new app <name>'",
         )
     return CheckResult("apps", True, f"discovered {len(apps)} app(s): {', '.join(apps)}")
@@ -50,7 +52,9 @@ def _check_datasets() -> CheckResult:
             failures.append(f"{app}: {e}")
     if failures:
         return CheckResult(
-            "datasets", False, "; ".join(failures),
+            "datasets",
+            False,
+            "; ".join(failures),
             "fix the dataset files under datasets/ (each must parse as a list of cases)",
         )
     return CheckResult("datasets", True, f"loaded {len(apps)} dataset(s) for all registered apps")
@@ -60,10 +64,14 @@ def _check_schema(settings: Settings) -> CheckResult:
     try:
         with LineageDB(settings.lineage_db_path) as db:
             db.init_schema()
-        return CheckResult("schema", True, f"lineage schema is current ({settings.lineage_db_path})")
+        return CheckResult(
+            "schema", True, f"lineage schema is current ({settings.lineage_db_path})"
+        )
     except Exception as e:  # noqa: BLE001
         return CheckResult(
-            "schema", False, f"could not initialize lineage DB: {e}",
+            "schema",
+            False,
+            f"could not initialize lineage DB: {e}",
             "check the lineage.db path is writable and not corrupt",
         )
 
@@ -72,7 +80,9 @@ def _check_env(settings: Settings) -> CheckResult:
     if settings.has_api_key:
         return CheckResult("env", True, "API key is set")
     return CheckResult(
-        "env", False, "REFINELY_OPENAI_API_KEY is not set",
+        "env",
+        False,
+        "REFINELY_OPENAI_API_KEY is not set",
         "set REFINELY_OPENAI_API_KEY in the environment or add a .env file",
     )
 
@@ -80,12 +90,14 @@ def _check_env(settings: Settings) -> CheckResult:
 def _check_network(settings: Settings) -> CheckResult:
     target = settings.base_url or DEFAULT_OPENAI_ENDPOINT
     try:
-        with urlopen(target, timeout=5):  # noqa: S310 - user opted into the probe
+        with urlopen(target, timeout=5):
             pass
         return CheckResult("network", True, f"reachable: {target}")
     except Exception as e:  # noqa: BLE001
         return CheckResult(
-            "network", False, f"could not reach {target}: {e}",
+            "network",
+            False,
+            f"could not reach {target}: {e}",
             "check your gateway/base_url or network connection",
         )
 

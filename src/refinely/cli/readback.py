@@ -210,9 +210,7 @@ def compare(
         baseline_run = db.get_run(baseline) if baseline is not None else None
         if pager:
             with console.pager(styles=True):
-                console.print(
-                    compare_table(list(reversed(runs)), baseline_run=baseline_run)
-                )
+                console.print(compare_table(list(reversed(runs)), baseline_run=baseline_run))
             return
         if (page - 1) * page_size >= total:
             raise click.ClickException(
@@ -227,9 +225,7 @@ def compare(
             console.print(f"page {page} of {pages}")
 
 
-def _compare_pair(
-    db: LineageDB, app: str, runs: list, baseline: str | None
-) -> tuple | None:
+def _compare_pair(db: LineageDB, app: str, runs: list, baseline: str | None) -> tuple | None:
     """Resolve (baseline_run, newest_run) for --diff-config/--cases.
 
     `runs` is newest-first. The baseline is the explicit `--baseline` run when
@@ -270,7 +266,12 @@ def _compare_diff_config(
     table.add_column("before", overflow="fold")
     table.add_column("after", overflow="fold")
     for key, (change, before, after) in delta.items():
-        table.add_row(key, change, json.dumps(before, ensure_ascii=False), json.dumps(after, ensure_ascii=False))
+        table.add_row(
+            key,
+            change,
+            json.dumps(before, ensure_ascii=False),
+            json.dumps(after, ensure_ascii=False),
+        )
     console.print(table)
 
 
@@ -299,7 +300,11 @@ def _compare_cases(
         )
     pairs = []
     for base_case, new_case in zip(baseline_cases, newest_cases):
-        delta = None if base_case.score is None or new_case.score is None else new_case.score - base_case.score
+        delta = (
+            None
+            if base_case.score is None or new_case.score is None
+            else new_case.score - base_case.score
+        )
         pairs.append((new_case.case_id, base_case.score, new_case.score, delta))
     console.print(case_pair_table(pairs))
     console.print(case_pair_summary(pairs))

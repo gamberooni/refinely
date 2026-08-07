@@ -45,6 +45,7 @@ def _normalize_tags(tags: list[str] | None) -> str | None:
                 seen.append(tag)
     return ",".join(seen) if seen else None
 
+
 evaluation_runs_table = Table(
     "evaluation_runs",
     _metadata,
@@ -292,9 +293,7 @@ class LineageDB:
     def get_run(self, run_id: str) -> EvaluationRun | None:
         """Fetch a single run with per-metric values joined, or None."""
         stmt = (
-            select(evaluation_runs_table)
-            .where(evaluation_runs_table.c.run_id == run_id)
-            .limit(1)
+            select(evaluation_runs_table).where(evaluation_runs_table.c.run_id == run_id).limit(1)
         )
         with self._engine.connect() as conn:
             row = conn.execute(stmt).mappings().first()

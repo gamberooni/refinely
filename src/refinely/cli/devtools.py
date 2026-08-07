@@ -90,4 +90,6 @@ def dataset(app: str) -> None:
         lines.append("expected keys: " + _format_counts(stats.expected_key_counts))
     if stats.malformed:
         lines.append(f"malformed cases: {', '.join(stats.malformed)}")
-    console.print(Panel("\n".join(lines), title=f"dataset: {registration.dataset_path}", expand=False))
+    console.print(
+        Panel("\n".join(lines), title=f"dataset: {registration.dataset_path}", expand=False)
+    )

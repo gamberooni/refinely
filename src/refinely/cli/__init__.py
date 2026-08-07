@@ -4,7 +4,7 @@ import click
 
 from refinely.registry import discover_apps
 
-from .context import _load_run_context  # noqa: F401
+from .context import _load_run_context
 
 
 @click.group()
@@ -14,7 +14,7 @@ def main() -> None:
 
 discover_apps()
 
-from . import (  # noqa: E402,F401
+from . import (  # noqa: F401
     compile,
     config_cmds,
     devtools,
@@ -23,4 +23,4 @@ from . import (  # noqa: E402,F401
     readback,
 )
 
-__all__ = ["main", "_load_run_context"]
+__all__ = ["_load_run_context", "main"]

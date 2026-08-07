@@ -135,9 +135,7 @@ def dataset_stats(path: str | Path) -> DatasetStats:
             expected_keys.update(case.expected.keys())
 
     modal_input_keys = set(key_sets.most_common(1)[0][0]) if key_sets else set()
-    modal_expected_shape = (
-        expected_shapes.most_common(1)[0][0] if expected_shapes else None
-    )
+    modal_expected_shape = expected_shapes.most_common(1)[0][0] if expected_shapes else None
 
     malformed: list[str] = []
     for case in cases:

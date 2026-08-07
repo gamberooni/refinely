@@ -69,4 +69,3 @@ The system SHALL support listing an application's evaluation runs, newest first,
 #### Scenario: Listing runs for an application with no history
 - **WHEN** a caller invokes the lineage read API for an application name with no recorded runs
 - **THEN** the system SHALL return an empty list
-

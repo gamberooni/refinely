@@ -1,5 +1,6 @@
 """Tests for the DSPy compile harness — fully hermetic (no real LLM / dspy calls)."""
 
+import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -323,6 +324,10 @@ def test_compile_program_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     # Patch _dspy() in every module that calls it during compile
     monkeypatch.setattr("refinely.dspy.compile._dspy", lambda: fake_dspy)
     monkeypatch.setattr("refinely.dspy.lm._dspy", lambda: fake_dspy)
+
+    # Apps build dspy.Example / dspy.Predict via __import__("dspy"); route that
+    # to the stub too so the test stays hermetic without the dspy group.
+    monkeypatch.setitem(sys.modules, "dspy", fake_dspy)
 
     # Stub out configure_lm so it doesn't actually call dspy.configure
     monkeypatch.setattr(
