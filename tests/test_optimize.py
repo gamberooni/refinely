@@ -5,10 +5,10 @@ import optuna
 
 from apps.extraction import ExtractionApp
 from apps.rag import RAGApp
-from crucible.eval.datasets import dataset_version, load_corpus, load_dataset
-from crucible.optimize.objective import build_objective
-from crucible.optimize.study import run_study
-from crucible.tracking.db import LineageDB
+from refinely.eval.datasets import dataset_version, load_corpus, load_dataset
+from refinely.optimize.objective import build_objective
+from refinely.optimize.study import run_study
+from refinely.tracking.db import LineageDB
 from tests.stub_llm import StubLLMClient
 
 EXTRACTION_RESPONSE = {"field_name": "sentiment", "field_value": "positive"}
@@ -115,7 +115,7 @@ def test_run_study_rag_smoke_records_lineage(tmp_path) -> None:
 
 
 def test_objective_with_explicit_overrides_for_unregistered_app(tmp_path) -> None:
-    from crucible.eval.metrics import (
+    from refinely.eval.metrics import (
         CostMetric,
         FuzzyMatchMetric,
         LatencyMetric,

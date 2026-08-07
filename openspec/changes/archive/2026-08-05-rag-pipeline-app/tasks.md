@@ -31,7 +31,7 @@
 ## 6. CLI
 
 - [x] 6.1 Register `rag` in `cli.py`: `APP_NAMES`, `DATASET_PATHS`, `_build_app` branch using `load_corpus`
-- [x] 6.2 CLI smoke: `crucible --help` and `evaluate --help` show `rag` in the Choice
+- [x] 6.2 CLI smoke: `refinely --help` and `evaluate --help` show `rag` in the Choice
 - [x] 6.3 Add an optimize smoke test (stub client) that runs the rag objective for 2 trials and records lineage rows
 
 ## 7. Docs
@@ -43,5 +43,5 @@
 ## 8. Verification
 
 - [x] 8.1 Full pytest suite passes (no live API calls)
-- [x] 8.2 Manual: `crucible evaluate rag` and `crucible optimize rag --trials 3` against the real gateway; lineage rows recorded and sensible
+- [x] 8.2 Manual: `refinely evaluate rag` and `refinely optimize rag --trials 3` against the real gateway; lineage rows recorded and sensible
 - [x] 8.3 Sync delta specs to main specs and archive the change

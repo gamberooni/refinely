@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from crucible.cli import main
-from crucible.config import (
+from refinely.cli import main
+from refinely.config import (
     ConfigError,
     clear_default,
     config_path,
@@ -18,9 +18,9 @@ from crucible.config import (
     show_config,
     write_best_config,
 )
-from crucible.core.settings import Settings
-from crucible.registry import AppRegistration
-from crucible.tracking.db import LineageDB
+from refinely.core.settings import Settings
+from refinely.registry import AppRegistration
+from refinely.tracking.db import LineageDB
 from tests.stub_llm import StubLLMClient
 
 
@@ -32,13 +32,13 @@ def _hermetic_settings(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def _config_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     target = tmp_path / "configs"
-    monkeypatch.setattr("crucible.config.CONFIG_DIR", target)
+    monkeypatch.setattr("refinely.config.CONFIG_DIR", target)
     return target
 
 
 class _StubApp:
     def execute(self, input: dict, config: dict) -> object:
-        from crucible.llm.usage import Result, TokenUsage
+        from refinely.llm.usage import Result, TokenUsage
 
         return Result(
             output={"field_value": "positive"},
@@ -60,9 +60,9 @@ def _registration(*, default_config=None, build_adapter=None) -> AppRegistration
 
 
 def _invoke(args: list[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> object:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     return CliRunner().invoke(main, args, env={"COLUMNS": "200"})
 
 
@@ -204,7 +204,7 @@ class TestConfigResolution:
     def test_evaluate_accepts_config_name(self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         save_config("extraction", "my-run", {"temperature": 0.4})
         monkeypatch.setattr(
-            "crucible.cli.context.get_registration",
+            "refinely.cli.context.get_registration",
             lambda app: _registration(default_config={"temperature": 0.0}),
         )
         result = _invoke(["evaluate", "extraction", "--config", "my-run"], monkeypatch, tmp_path)
@@ -232,7 +232,7 @@ class TestConfigResolution:
         save_config("extraction", "prod", {"temperature": 0.9})
         set_default("extraction", "prod")
         monkeypatch.setattr(
-            "crucible.cli.context.get_registration",
+            "refinely.cli.context.get_registration",
             lambda app: _registration(default_config={"temperature": 0.0}),
         )
         result = _invoke(["evaluate", "extraction"], monkeypatch, tmp_path)
@@ -245,9 +245,9 @@ class TestConfigResolution:
 
 class TestModelAxis:
     def test_evaluate_records_model_override(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-        monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-        monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+        monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+        monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+        monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
         result = _invoke(["evaluate", "extraction", "--model", "gpt-4o"], monkeypatch, tmp_path)
         assert result.exit_code == 0, result.output
         db = LineageDB(tmp_path / "lineage.db")
@@ -256,10 +256,10 @@ class TestModelAxis:
         db.close()
 
     def test_evaluate_records_default_model(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-        monkeypatch.setenv("CRUCIBLE_MODEL_NAME", "default-model")
-        monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-        monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+        monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+        monkeypatch.setenv("REFINELY_MODEL_NAME", "default-model")
+        monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+        monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
         result = _invoke(["evaluate", "extraction"], monkeypatch, tmp_path)
         assert result.exit_code == 0, result.output
         db = LineageDB(tmp_path / "lineage.db")
@@ -268,9 +268,9 @@ class TestModelAxis:
         db.close()
 
     def test_evaluate_models_fanout_records_each(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-        monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-        monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+        monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+        monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+        monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
         result = _invoke(["evaluate", "extraction", "--models", "gpt-4o,claude-3"], monkeypatch, tmp_path)
         assert result.exit_code == 0, result.output
         db = LineageDB(tmp_path / "lineage.db")
@@ -280,17 +280,17 @@ class TestModelAxis:
         db.close()
 
     def test_evaluate_models_empty_errors(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-        monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-        monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+        monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+        monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+        monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
         result = _invoke(["evaluate", "extraction", "--models", ""], monkeypatch, tmp_path)
         assert result.exit_code == 1
         assert "--models must be a non-empty comma-separated list" in result.output
 
     def test_evaluate_model_and_models_mutually_exclusive(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-        monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-        monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+        monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+        monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+        monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
         result = _invoke(
             ["evaluate", "extraction", "--model", "gpt-4o", "--models", "gpt-4o,claude-3"],
             monkeypatch,
@@ -322,9 +322,9 @@ class TestModelAxis:
     def test_compare_model_filter_shows_only_that_model(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-        monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-        monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+        monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+        monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+        monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
         db = LineageDB(tmp_path / "lineage.db")
         db.init_schema()
         db.record_run(
@@ -358,9 +358,9 @@ class TestModelAxis:
     def test_compare_model_no_matches_prints_message(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-        monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-        monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+        monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+        monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+        monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
         db = LineageDB(tmp_path / "lineage.db")
         db.init_schema()
         db.record_run(
@@ -382,10 +382,10 @@ class TestModelAxis:
 
 class TestOptimizeAutosave:
     def test_optimize_saves_best_config(self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-        monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-        monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
-        monkeypatch.setattr("crucible.cli.context.run_study", lambda *a, **k: _FakeStudy())
+        monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+        monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+        monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
+        monkeypatch.setattr("refinely.cli.context.run_study", lambda *a, **k: _FakeStudy())
         result = _invoke(["optimize", "extraction", "--trials", "2"], monkeypatch, tmp_path)
         assert result.exit_code == 0, result.output
         assert "opt-best.json" in result.output

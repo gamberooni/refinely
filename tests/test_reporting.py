@@ -4,8 +4,8 @@ import json
 
 from rich.console import Console
 
-from crucible.reporting.export import export_runs_csv, export_runs_json
-from crucible.reporting.render import (
+from refinely.reporting.export import export_runs_csv, export_runs_json
+from refinely.reporting.render import (
     _metric_names,
     best_compile_panel,
     best_run_panel,
@@ -13,7 +13,7 @@ from crucible.reporting.render import (
     compare_table,
     runs_table,
 )
-from crucible.tracking.models import CaseRecord, CompileRecord, EvaluationRun
+from refinely.tracking.models import CaseRecord, CompileRecord, EvaluationRun
 
 
 def _render(table) -> str:

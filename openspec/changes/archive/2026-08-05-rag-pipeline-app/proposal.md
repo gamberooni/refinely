@@ -25,7 +25,7 @@ The two existing toy apps (extraction, QA) each make a single LLM call with 2-3 
 
 ## Impact
 
-- New: `src/crucible/apps/rag.py`, `datasets/rag_v1.json`, tests for the app/metrics/search space
-- Modified: `src/crucible/apps/retrieval.py` (strategy + indexed variant), `src/crucible/eval/metrics.py` (2 metrics, weight scheme, `build_metrics`), `src/crucible/optimize/search_space.py`, `src/crucible/cli.py`, README.md, AGENTS.md, CONTRIBUTING.md
+- New: `src/refinely/apps/rag.py`, `datasets/rag_v1.json`, tests for the app/metrics/search space
+- Modified: `src/refinely/apps/retrieval.py` (strategy + indexed variant), `src/refinely/eval/metrics.py` (2 metrics, weight scheme, `build_metrics`), `src/refinely/optimize/search_space.py`, `src/refinely/cli.py`, README.md, AGENTS.md, CONTRIBUTING.md
 - No changes to settings, lineage schema, or the evaluation runner
 - Full test suite grows from 65 to roughly 75 tests; no new dependencies

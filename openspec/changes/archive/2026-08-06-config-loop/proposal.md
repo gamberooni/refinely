@@ -27,9 +27,9 @@ Config files hold prompts/params only — never the model name.
 
 ## Impact
 
-- `src/crucible/cli.py` — new `config` command group; `--model`/`--models` flags on evaluate/optimize; config-name resolution in evaluate/optimize.
-- `src/crucible/tracking/db.py` — `model_name` column on `evaluation_runs` + upgrade path in `init_schema`.
-- `src/crucible/reporting/render.py` — model column in `runs_table`/`compare_table`.
-- New module for config file storage/management (save/list/show/rm/default + resolution), likely `src/crucible/config.py` or similar.
+- `src/refinely/cli.py` — new `config` command group; `--model`/`--models` flags on evaluate/optimize; config-name resolution in evaluate/optimize.
+- `src/refinely/tracking/db.py` — `model_name` column on `evaluation_runs` + upgrade path in `init_schema`.
+- `src/refinely/reporting/render.py` — model column in `runs_table`/`compare_table`.
+- New module for config file storage/management (save/list/show/rm/default + resolution), likely `src/refinely/config.py` or similar.
 - New `configs/` directory convention (git-versionable, per-app namespaced).
 - Datasets and app registry: unchanged. No new dependencies.

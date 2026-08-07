@@ -1,8 +1,8 @@
 import pytest
 
 from apps.rag import RAGApp
-from crucible.core.exceptions import EvalError
-from crucible.llm.usage import TokenUsage
+from refinely.core.exceptions import EvalError
+from refinely.llm.usage import TokenUsage
 from tests.stub_llm import StubLLMClient
 
 CORPUS = [

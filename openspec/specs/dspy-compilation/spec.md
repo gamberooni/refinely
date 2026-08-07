@@ -16,7 +16,7 @@ The system SHALL support an optional `dspy_factory` field on app registrations, 
 - **THEN** evaluation and optimization SHALL behave exactly as before, and the compile command SHALL report that the app does not support compilation
 
 ### Requirement: DSPy compile harness
-The system SHALL provide a compile pipeline that configures a `dspy.LM` from crucible Settings (model name, OpenAI-compatible `base_url`, API key), splits the app's dataset into train and validation subsets, runs a `BootstrapFewShot` optimizer whose metric scores predictions through the app's registered metrics, and saves the compiled program to a JSON artifact.
+The system SHALL provide a compile pipeline that configures a `dspy.LM` from refinely Settings (model name, OpenAI-compatible `base_url`, API key), splits the app's dataset into train and validation subsets, runs a `BootstrapFewShot` optimizer whose metric scores predictions through the app's registered metrics, and saves the compiled program to a JSON artifact.
 
 #### Scenario: Compiling an app program
 - **WHEN** the compile pipeline runs for an app with a `dspy_factory`, a bounded training set, and optimizer settings

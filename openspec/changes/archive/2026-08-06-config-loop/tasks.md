@@ -2,14 +2,14 @@
 
 ## 1. Config storage layer
 
-- [x] 1.1 Add `src/crucible/config.py` with the `configs/<app>/<name>.json` storage functions (save/list/show/rm) plus path helpers, following the cwd-relative `datasets/` convention
+- [x] 1.1 Add `src/refinely/config.py` with the `configs/<app>/<name>.json` storage functions (save/list/show/rm) plus path helpers, following the cwd-relative `datasets/` convention
 - [x] 1.2 Implement name validation (strict `[A-Za-z0-9_-]+`, no path separators, no leading `.`, `opt-best` reserved) enforced on save/show/rm
 - [x] 1.3 Implement the default pointer (`configs/<app>/.default` plain-text file): `set_default`, `clear_default`, `get_default`, with `rm` clearing the pointer when it pointed at the removed config
 - [x] 1.4 Implement `default_config(app, registered_default)`: no pointer → registered default; pointer set → named config merged over registered default
 
 ## 2. Config CLI group
 
-- [x] 2.1 Add the `config` subcommand group to `src/crucible/cli.py`: `save <name> --app <app> --config <json>`, `list [--app]`, `show <name> --app`, `rm <name> --app`, `default <app> --set <name>` / `--clear`
+- [x] 2.1 Add the `config` subcommand group to `src/refinely/cli.py`: `save <name> --app <app> --config <json>`, `list [--app]`, `show <name> --app`, `rm <name> --app`, `default <app> --set <name>` / `--clear`
 - [x] 2.2 `config save` validates JSON object + name, writes the file, reports the path; invalid input exits with a clear error and no file created
 - [x] 2.3 `config list` marks the default config with a star; `config show` prints the file contents; `config rm` deletes the file (and clears the default pointer if needed)
 
@@ -36,7 +36,7 @@
 ## 6. Read-back: model in compare
 
 - [x] 6.1 Add optional `model_name` filter param to `LineageDB.list_runs` (WHERE clause when set)
-- [x] 6.2 Add model column to `compare_table` in `src/crucible/reporting/render.py`; NULL renders blank
+- [x] 6.2 Add model column to `compare_table` in `src/refinely/reporting/render.py`; NULL renders blank
 - [x] 6.3 Add `--model <name>` flag to `cli.compare`, pass through to `list_runs`, no-matches → "no runs found for that model"
 
 ## 7. Tests

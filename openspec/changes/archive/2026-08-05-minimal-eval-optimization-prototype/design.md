@@ -6,7 +6,7 @@
 2. Does wrapping evaluation as an Optuna objective function actually improve an aggregate score over trials? (docs 04/06/07, ADR-002/007)
 3. Does lightweight SQLite-based lineage tracking give useful, queryable reproducibility without MLflow? (docs 03/12, ADR-009)
 
-This is a from-scratch prototype in an otherwise-empty `src/crucible/` package (currently only `__init__.py` + `py.typed`). No existing specs, no git history, no production constraints.
+This is a from-scratch prototype in an otherwise-empty `src/refinely/` package (currently only `__init__.py` + `py.typed`). No existing specs, no git history, no production constraints.
 
 ## Goals / Non-Goals
 
@@ -31,7 +31,7 @@ This is a from-scratch prototype in an otherwise-empty `src/crucible/` package (
 ## Decisions
 
 **LLM client: adapt user-provided `AsyncOpenAIClient` pattern almost verbatim.**
-Reuses a battle-tested pattern (JSON-schema-forced structured output, fence-stripping + repair-retry on malformed JSON, `tenacity` retry on transient errors, per-model temperature support detection) rather than reinventing an OpenAI wrapper, paired with `crucible.core.exceptions.LLMError`. Alternative considered: use `litellm` for multi-provider abstraction — rejected because this prototype only needs OpenAI and the existing client pattern is already proven.
+Reuses a battle-tested pattern (JSON-schema-forced structured output, fence-stripping + repair-retry on malformed JSON, `tenacity` retry on transient errors, per-model temperature support detection) rather than reinventing an OpenAI wrapper, paired with `refinely.core.exceptions.LLMError`. Alternative considered: use `litellm` for multi-provider abstraction — rejected because this prototype only needs OpenAI and the existing client pattern is already proven.
 
 **Two apps chosen for adapter-shape diversity, not domain realism.**
 `ExtractionApp` (structured JSON output via `chat_structured`) and `QAApp` (in-memory keyword/substring retrieval + `chat_text`/`chat_structured` answer) were chosen specifically because their config shapes and execution paths differ (no config knob overlap except `temperature`/`system_prompt_variant`). This directly tests whether `ApplicationAdapter.execute(input, config)` is sufficient as a uniform contract (ADR-001/010) without the evaluation engine needing to know which app it's running.
@@ -49,10 +49,10 @@ Using one SQLite file for both Optuna's internal trial bookkeeping and the custo
 `evaluation_runs` + `metric_results` alone would satisfy ADR-009 (lineage: app+dataset+config+metrics), but a `case_results` table was added specifically for debugging — to answer "why did this config score low?" without re-running the evaluation. This trades a bit of storage for significantly better developer experience while validating the optimization loop.
 
 **Configuration via `pydantic-settings`, not raw env vars.**
-Centralizes API key, model name, and DB path in one typed `BaseSettings` class (`crucible.core.settings`) instead of scattering `os.environ.get(...)` calls, and avoids adding `python-dotenv` as a separate dependency (pydantic-settings handles `.env` loading natively).
+Centralizes API key, model name, and DB path in one typed `BaseSettings` class (`refinely.core.settings`) instead of scattering `os.environ.get(...)` calls, and avoids adding `python-dotenv` as a separate dependency (pydantic-settings handles `.env` loading natively).
 
 **CLI: `click` over `argparse`.**
-User explicitly requested `click` for its subcommand ergonomics (`crucible evaluate extraction`, `crucible optimize qa --trials 20`) despite `argparse` being stdlib-only and lighter weight — the ergonomics win for a CLI with multiple subcommands and options outweighs the extra dependency here.
+User explicitly requested `click` for its subcommand ergonomics (`refinely evaluate extraction`, `refinely optimize qa --trials 20`) despite `argparse` being stdlib-only and lighter weight — the ergonomics win for a CLI with multiple subcommands and options outweighs the extra dependency here.
 
 **Module layout: package-based, mirroring the reference client's conventions.**
 `core/`, `llm/`, `apps/`, `datasets/`, `eval/`, `optimize/`, `tracking/` as separate subpackages (vs. flat top-level modules) keeps each concern isolated and testable independently, and mirrors the naming style of the reference LLM client code being adapted.
@@ -70,7 +70,7 @@ Unit tests cover all non-LLM plumbing (dataset loading, metric math, aggregation
 
 ## Migration Plan
 
-Not applicable — this is a net-new, standalone addition to an empty package with no existing users, deployments, or data to migrate. No rollback plan needed beyond `git revert`/deleting the new `src/crucible/*` modules.
+Not applicable — this is a net-new, standalone addition to an empty package with no existing users, deployments, or data to migrate. No rollback plan needed beyond `git revert`/deleting the new `src/refinely/*` modules.
 
 ## Open Questions
 

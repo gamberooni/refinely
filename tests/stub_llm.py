@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from crucible.llm.usage import ChatResult, TokenUsage
+from refinely.llm.usage import ChatResult, TokenUsage
 
 
 class StubLLMClient:

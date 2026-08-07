@@ -6,20 +6,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from crucible.core.exceptions import EvalError
-from crucible.core.settings import Settings
-from crucible.dspy.bridge import (
+from refinely.core.exceptions import EvalError
+from refinely.core.settings import Settings
+from refinely.dspy.bridge import (
     CASE_ATTR,
     example_case,
     make_dspy_metric,
     prediction_result,
     score_result,
 )
-from crucible.dspy.compile import CompileResult, _split_train_val, compile_program
-from crucible.dspy.spec import DspyProgramSpec
-from crucible.eval.datasets import EvalCase
-from crucible.eval.metrics import MetricResult
-from crucible.llm.usage import Result, TokenUsage
+from refinely.dspy.compile import CompileResult, _split_train_val, compile_program
+from refinely.dspy.spec import DspyProgramSpec
+from refinely.eval.datasets import EvalCase
+from refinely.eval.metrics import MetricResult
+from refinely.llm.usage import Result, TokenUsage
 
 # ---------------------------------------------------------------------------
 # Hermetic settings fixture (mirrors rest of test suite)
@@ -289,7 +289,7 @@ def _build_stub_dspy(compiled_prediction: dict | None = None) -> MagicMock:
 
 def test_compile_program_no_dspy_factory(tmp_path: Path):
     import apps  # noqa: F401
-    from crucible.registry import AppRegistration, register_app
+    from refinely.registry import AppRegistration, register_app
 
     register_app(
         AppRegistration(
@@ -321,17 +321,17 @@ def test_compile_program_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     fake_dspy = _build_stub_dspy({"field_name": "sentiment", "field_value": "positive"})
 
     # Patch _dspy() in every module that calls it during compile
-    monkeypatch.setattr("crucible.dspy.compile._dspy", lambda: fake_dspy)
-    monkeypatch.setattr("crucible.dspy.lm._dspy", lambda: fake_dspy)
+    monkeypatch.setattr("refinely.dspy.compile._dspy", lambda: fake_dspy)
+    monkeypatch.setattr("refinely.dspy.lm._dspy", lambda: fake_dspy)
 
     # Stub out configure_lm so it doesn't actually call dspy.configure
     monkeypatch.setattr(
-        "crucible.dspy.compile.configure_lm",
+        "refinely.dspy.compile.configure_lm",
         lambda settings, temperature=0.0, **kw: None,
     )
 
     from apps.extraction import DATASET_PATH
-    from crucible.eval.datasets import load_dataset
+    from refinely.eval.datasets import load_dataset
 
     dataset = load_dataset(DATASET_PATH)
     assert len(dataset) >= 2
@@ -374,7 +374,7 @@ def test_compile_program_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 
 def test_dspy_importorskip_compile_program():
     pytest.importorskip("dspy")
-    from crucible.dspy import (
+    from refinely.dspy import (
         CompileResult,
         DspyProgramSpec,
         compile_program,
@@ -401,7 +401,7 @@ def test_dspy_lm_wiring_from_settings(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(dspy, "LM", FakeLM)
     monkeypatch.setattr(dspy, "configure", lambda **kw: None)
 
-    from crucible.dspy.lm import configure_lm
+    from refinely.dspy.lm import configure_lm
 
     s = Settings(openai_api_key="sk-test", model_name="my-model", base_url="http://gw/v1")
     configure_lm(s, temperature=0.1)
@@ -424,7 +424,7 @@ def test_dspy_lm_no_base_url(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(dspy, "LM", FakeLM)
     monkeypatch.setattr(dspy, "configure", lambda **kw: None)
 
-    from crucible.dspy.lm import configure_lm
+    from refinely.dspy.lm import configure_lm
 
     s = Settings(openai_api_key="sk-test", base_url=None)
     configure_lm(s)
@@ -479,17 +479,17 @@ def test_load_program_builds_loads_and_configures(monkeypatch: pytest.MonkeyPatc
     configured: dict = {}
 
     monkeypatch.setattr(
-        "crucible.dspy.load._dspy",
+        "refinely.dspy.load._dspy",
         lambda: MagicMock(),
     )
     monkeypatch.setattr(
-        "crucible.dspy.load.configure_lm",
+        "refinely.dspy.load.configure_lm",
         lambda settings, temperature=0.0, **kw: configured.update(
             {"settings": settings, "temperature": temperature}
         ),
     )
 
-    from crucible.dspy.load import load_program
+    from refinely.dspy.load import load_program
 
     s = Settings(openai_api_key="sk-test")
     program = load_program(spec, "artifacts/prog.json", s, temperature=0.25)
@@ -506,7 +506,7 @@ def test_load_program_builds_loads_and_configures(monkeypatch: pytest.MonkeyPatc
 
 
 def test_compiled_program_adapter_execute():
-    from crucible.dspy.adapter import CompiledProgramAdapter
+    from refinely.dspy.adapter import CompiledProgramAdapter
 
     class _Example:
         def inputs(self):

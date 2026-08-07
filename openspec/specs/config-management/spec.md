@@ -20,19 +20,19 @@ The system SHALL store named per-app configurations as JSON files on disk at `co
 The `evaluate` command SHALL resolve `--config` as either a named config (a file under `configs/<app>/`) or an inline JSON object merged over the app's default configuration.
 
 #### Scenario: Resolving a config by name
-- **WHEN** a user runs `crucible evaluate <app> --config <name>` and a file `configs/<app>/<name>.json` exists
+- **WHEN** a user runs `refinely evaluate <app> --config <name>` and a file `configs/<app>/<name>.json` exists
 - **THEN** the run SHALL use the JSON parsed from that file merged over the app's default configuration
 
 #### Scenario: Resolving an inline config
-- **WHEN** a user runs `crucible evaluate <app> --config '{"temperature": 0.4}'`
+- **WHEN** a user runs `refinely evaluate <app> --config '{"temperature": 0.4}'`
 - **THEN** the run SHALL use the inline JSON merged over the app's default configuration
 
 #### Scenario: Unknown config name
-- **WHEN** a user runs `crucible evaluate <app> --config <name>` and no file `configs/<app>/<name>.json` exists
+- **WHEN** a user runs `refinely evaluate <app> --config <name>` and no file `configs/<app>/<name>.json` exists
 - **THEN** the CLI SHALL exit with a clear error stating the config was not found
 
 #### Scenario: Default config used when no --config given
-- **WHEN** a user runs `crucible evaluate <app>` with no `--config`
+- **WHEN** a user runs `refinely evaluate <app>` with no `--config`
 - **THEN** the run SHALL use the app's default config (the per-app default pointer, falling back to the app's registered default configuration)
 
 ### Requirement: Per-app default config pointer

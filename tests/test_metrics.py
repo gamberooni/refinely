@@ -1,14 +1,14 @@
 import pytest
 
-from crucible.eval.datasets import EvalCase
-from crucible.eval.metrics import (
+from refinely.eval.datasets import EvalCase
+from refinely.eval.metrics import (
     CostMetric,
     FuzzyMatchMetric,
     LatencyMetric,
     LLMJudgeMetric,
     aggregate_scores,
 )
-from crucible.llm.usage import Result, TokenUsage
+from refinely.llm.usage import Result, TokenUsage
 from tests.stub_llm import StubLLMClient
 
 
@@ -91,7 +91,7 @@ def test_llm_judge_rating_3() -> None:
 
 def test_llm_judge_invalid_rating_raises() -> None:
     stub = StubLLMClient(text_responses=["not a rating"])
-    from crucible.core.exceptions import EvalError
+    from refinely.core.exceptions import EvalError
 
     with pytest.raises(EvalError):
         LLMJudgeMetric(client=stub, model="gpt-4o-mini").evaluate(

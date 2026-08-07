@@ -2,9 +2,9 @@ import optuna
 import pytest
 
 import apps  # noqa: F401  (registers demo apps)
-from crucible.core.exceptions import EvalError
-from crucible.dspy import DspyProgramSpec
-from crucible.registry import (
+from refinely.core.exceptions import EvalError
+from refinely.dspy import DspyProgramSpec
+from refinely.registry import (
     AppRegistration,
     discover_apps,
     get_registration,
@@ -197,7 +197,7 @@ def test_discover_apps_imports_entry_point_modules(monkeypatch) -> None:
 
     names = discover_apps()
 
-    assert calls == ["crucible.apps"]
+    assert calls == ["refinely.apps"]
     assert names == sorted(names)
     assert set(DEMO_APPS) <= set(names)
 
@@ -206,7 +206,7 @@ def test_discover_apps_registers_plugins(monkeypatch) -> None:
     ep = _plugin_entry_point("plugin_app")
 
     def fake_entry_points(*, group: str | None = None):
-        assert group == "crucible.apps"
+        assert group == "refinely.apps"
         return [ep]
 
     monkeypatch.setattr("importlib.metadata.entry_points", fake_entry_points)

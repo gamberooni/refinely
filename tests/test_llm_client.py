@@ -1,12 +1,12 @@
 import pytest
 from pydantic import BaseModel
 
-from crucible.llm.client import (
+from refinely.llm.client import (
     LLMClient,
     _extract_json_from_prose,
     _strip_json_fences,
 )
-from crucible.llm.usage import ChatResult, TokenUsage
+from refinely.llm.usage import ChatResult, TokenUsage
 from tests.stub_llm import StubLLMClient
 
 

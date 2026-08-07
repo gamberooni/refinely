@@ -5,8 +5,8 @@ from sqlalchemy import text
 
 from apps.extraction import EXTRACTION_WEIGHTS
 from apps.qa import QA_WEIGHTS
-from crucible.eval.runner import CaseResult
-from crucible.tracking.db import LineageDB, evaluation_runs_table
+from refinely.eval.runner import CaseResult
+from refinely.tracking.db import LineageDB, evaluation_runs_table
 
 
 def _case_results(n: int = 3) -> list[CaseResult]:

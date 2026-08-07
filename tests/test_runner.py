@@ -1,11 +1,11 @@
 import pytest
 
 from apps.extraction import ExactMatchMetric
-from crucible.core.exceptions import EvalError
-from crucible.eval.datasets import EvalCase
-from crucible.eval.metrics import LatencyMetric
-from crucible.eval.runner import EvaluationRunner
-from crucible.llm.usage import Result, TokenUsage
+from refinely.core.exceptions import EvalError
+from refinely.eval.datasets import EvalCase
+from refinely.eval.metrics import LatencyMetric
+from refinely.eval.runner import EvaluationRunner
+from refinely.llm.usage import Result, TokenUsage
 
 
 class _StubApp:

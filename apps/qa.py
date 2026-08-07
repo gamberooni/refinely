@@ -6,21 +6,21 @@ from typing import Any
 from pydantic import BaseModel
 
 from apps.common import format_snippet_block, retrieve_snippets
-from crucible.core.exceptions import EvalError
-from crucible.core.settings import Settings
-from crucible.dspy.bridge import CASE_ATTR
-from crucible.dspy.spec import DspyProgramSpec
-from crucible.eval.datasets import EvalCase, load_corpus
-from crucible.eval.metrics import (
+from refinely.core.exceptions import EvalError
+from refinely.core.settings import Settings
+from refinely.dspy.bridge import CASE_ATTR
+from refinely.dspy.spec import DspyProgramSpec
+from refinely.eval.datasets import EvalCase, load_corpus
+from refinely.eval.metrics import (
     CostMetric,
     FuzzyMatchMetric,
     LatencyMetric,
     LLMJudgeMetric,
     Metric,
 )
-from crucible.llm.client import LLMClient
-from crucible.llm.usage import Result, TokenUsage
-from crucible.registry import AppRegistration, register_app
+from refinely.llm.client import LLMClient
+from refinely.llm.usage import Result, TokenUsage
+from refinely.registry import AppRegistration, register_app
 
 DATASET_PATH = Path(__file__).resolve().parents[1] / "datasets" / "qa_v1.json"
 
@@ -57,7 +57,7 @@ class QAApp:
         self._settings = settings or Settings()
         self._dspy_program: Any = None
         if program_path is not None:
-            from crucible.dspy.load import load_program
+            from refinely.dspy.load import load_program
 
             self._dspy_program = load_program(
                 _qa_dspy_factory(self._corpus, self._settings),

@@ -7,12 +7,12 @@ import pytest
 from click.testing import CliRunner
 
 from apps.extraction import EXTRACTION_WEIGHTS
-from crucible.cli import _load_run_context, main
-from crucible.core.settings import Settings
-from crucible.eval.runner import CaseResult
-from crucible.llm.usage import Result, TokenUsage
-from crucible.registry import AppRegistration
-from crucible.tracking.db import LineageDB, evaluation_runs_table
+from refinely.cli import _load_run_context, main
+from refinely.core.settings import Settings
+from refinely.eval.runner import CaseResult
+from refinely.llm.usage import Result, TokenUsage
+from refinely.registry import AppRegistration
+from refinely.tracking.db import LineageDB, evaluation_runs_table
 from tests.stub_llm import StubLLMClient
 
 DATASET_PATH = Path("datasets/extraction_v1.json")
@@ -103,8 +103,8 @@ def test_evaluate_program_gate_rejects_app_without_dspy_factory(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
 
     program = tmp_path / "program.json"
     program.write_text("{}")
@@ -121,16 +121,16 @@ def test_evaluate_program_passes_program_path_to_build_adapter(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
     received: dict[str, object] = {}
 
     def _build_adapter(client, settings, program_path=None):
         received["program_path"] = program_path
         return _StubApp()
 
-    monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
     monkeypatch.setattr(
-        "crucible.cli.context.get_registration",
+        "refinely.cli.context.get_registration",
         lambda app: _registration(
             dspy_factory=lambda settings: object(),
             build_adapter=_build_adapter,
@@ -151,16 +151,16 @@ def test_load_run_context_returns_expected_shape(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = StubLLMClient()
-    monkeypatch.setattr("crucible.cli.context._client", lambda settings: client)
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: client)
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
 
     calls: list[tuple[str, Path]] = []
     monkeypatch.setattr(
-        "crucible.cli.context.load_dataset",
+        "refinely.cli.context.load_dataset",
         lambda path: calls.append(("load_dataset", path)) or [],
     )
     monkeypatch.setattr(
-        "crucible.cli.context.dataset_version",
+        "refinely.cli.context.dataset_version",
         lambda path: calls.append(("dataset_version", path)) or "v1",
     )
 
@@ -194,8 +194,8 @@ def test_show_renders_runs_newest_first(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.55, 0.8, 0.66])
 
     result = _invoke(["show", "extraction"])
@@ -215,8 +215,8 @@ def test_show_without_runs_prints_message(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
 
     result = _invoke(["show", "extraction"])
 
@@ -229,8 +229,8 @@ def test_show_run_renders_cases_worst_first(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.8], cases=True)
 
     result = _invoke(["show", "extraction", "--run", run_ids[0]])
@@ -248,8 +248,8 @@ def test_show_run_unknown_run_id_errors(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
 
     result = _invoke(["show", "extraction", "--run", "nonexistent"])
 
@@ -262,8 +262,8 @@ def test_compare_renders_deltas_against_previous_run(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     _seed_runs(tmp_path / "lineage.db", [0.55, 0.8, 0.66])
 
     result = _invoke(["compare", "extraction"])
@@ -280,8 +280,8 @@ def test_compare_with_baseline_override(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.55, 0.8, 0.66])
 
     result = _invoke(["compare", "extraction", "--baseline", run_ids[1]])
@@ -297,8 +297,8 @@ def test_compare_unknown_baseline_errors(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     _seed_runs(tmp_path / "lineage.db", [0.8])
 
     result = _invoke(["compare", "extraction", "--baseline", "nonexistent"])
@@ -312,8 +312,8 @@ def test_show_run_finds_id_beyond_default_limit(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.1] * 55)
 
     result = _invoke(["show", "extraction", "--run", run_ids[0]])
@@ -327,8 +327,8 @@ def test_show_pagination(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.01 * i for i in range(60)])
 
     result = _invoke(["show", "extraction", "--page", "2", "--limit", "10"])
@@ -345,8 +345,8 @@ def test_show_page_out_of_range_errors(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     _seed_runs(tmp_path / "lineage.db", [0.1] * 5)
 
     result = _invoke(["show", "extraction", "--page", "2"])
@@ -360,8 +360,8 @@ def test_compare_pagination(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.01 * i for i in range(60)])
 
     result = _invoke(["compare", "extraction", "--page", "2", "--page-size", "10"])
@@ -378,8 +378,8 @@ def test_compare_baseline_across_pages(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.05 * i for i in range(20)])
 
     result = _invoke(
@@ -406,8 +406,8 @@ def test_compare_without_runs_prints_message(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
 
     result = _invoke(["compare", "extraction"])
 
@@ -420,8 +420,8 @@ def test_show_pager_pipes_all_runs(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.01 * i for i in range(60)])
 
     result = _invoke(["show", "extraction", "--pager"])
@@ -437,8 +437,8 @@ def test_compare_pager_pipes_all_runs(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.1 + 0.01 * i for i in range(60)])
 
     result = _invoke(["compare", "extraction", "--pager"])
@@ -455,8 +455,8 @@ def test_export_csv_writes_file_and_echoes_path(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.55, 0.8])
     out = tmp_path / "out.csv"
 
@@ -475,8 +475,8 @@ def test_export_json_writes_valid_file(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.55, 0.8, 0.66])
     out = tmp_path / "out.json"
 
@@ -494,8 +494,8 @@ def test_export_defaults_to_app_name_in_cwd(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     monkeypatch.chdir(tmp_path)
     _seed_runs(tmp_path / "lineage.db", [0.8])
 
@@ -511,8 +511,8 @@ def test_export_zero_runs_writes_header_only(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     out = tmp_path / "empty.csv"
 
     result = _invoke(["export", "extraction", "--output", str(out)])
@@ -528,8 +528,8 @@ def test_export_rejects_invalid_format(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
 
     result = _invoke(["export", "extraction", "--format", "yaml"])
 
@@ -542,8 +542,8 @@ def test_show_run_accepts_abbreviated_prefix(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.8], cases=True)
 
     result = _invoke(["show", "extraction", "--run", run_ids[0][:8]])
@@ -557,15 +557,15 @@ def test_show_run_ambiguous_prefix_errors(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     counter = {"n": 0}
 
     def _next_uuid() -> _FakeUuid:
         counter["n"] += 1
         return _FakeUuid(counter["n"])
 
-    monkeypatch.setattr("crucible.tracking.db.uuid.uuid4", _next_uuid)
+    monkeypatch.setattr("refinely.tracking.db.uuid.uuid4", _next_uuid)
     _seed_runs(tmp_path / "lineage.db", [0.5, 0.6])
 
     result = _invoke(["show", "extraction", "--run", "abcd"])
@@ -580,8 +580,8 @@ def test_compare_baseline_accepts_abbreviated_prefix(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.55, 0.8, 0.66])
 
     result = _invoke(["compare", "extraction", "--baseline", run_ids[1][:8]])
@@ -596,10 +596,10 @@ def test_evaluate_config_merges_over_default_config(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
     monkeypatch.setattr(
-        "crucible.cli.context.get_registration",
+        "refinely.cli.context.get_registration",
         lambda app: _registration(
             build_adapter=lambda client, settings, program_path=None: _StubApp(),
             default_config={"temperature": 0.1, "system_prompt_variant": "strict"},
@@ -624,10 +624,10 @@ def test_evaluate_config_without_override_uses_default(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
     monkeypatch.setattr(
-        "crucible.cli.context.get_registration",
+        "refinely.cli.context.get_registration",
         lambda app: _registration(
             build_adapter=lambda client, settings, program_path=None: _StubApp(),
             default_config={"temperature": 0.1},
@@ -648,9 +648,9 @@ def test_evaluate_config_rejects_invalid_json(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
 
     result = _invoke(["evaluate", "extraction", "--config", "{not json"])
 
@@ -663,9 +663,9 @@ def test_evaluate_config_rejects_non_object(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
 
     result = _invoke(["evaluate", "extraction", "--config", "[1, 2]"])
 
@@ -678,8 +678,8 @@ def test_export_csv_includes_configuration_column(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     _seed_runs(tmp_path / "lineage.db", [0.8])
     out = tmp_path / "out.csv"
 
@@ -727,10 +727,10 @@ def test_evaluate_records_tags(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context._client", lambda settings: StubLLMClient())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
     monkeypatch.setattr(
-        "crucible.cli.context.get_registration",
+        "refinely.cli.context.get_registration",
         lambda app: _registration(
             build_adapter=lambda client, settings, program_path=None: _StubApp()
         ),
@@ -750,8 +750,8 @@ def test_show_filters_runs_by_tag(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_tagged_runs(tmp_path / "lineage.db")
 
     result = _invoke(["show", "extraction", "--tag", "candidate"])
@@ -767,8 +767,8 @@ def test_show_tag_no_match_prints_message(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     _seed_runs(tmp_path / "lineage.db", [0.8])
 
     result = _invoke(["show", "extraction", "--tag", "nope"])
@@ -782,8 +782,8 @@ def test_compare_filters_by_tag(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_tagged_runs(tmp_path / "lineage.db")
 
     result = _invoke(["compare", "extraction", "--tag", "candidate"])
@@ -798,8 +798,8 @@ def test_compare_tag_no_match_prints_message(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     _seed_runs(tmp_path / "lineage.db", [0.8])
 
     result = _invoke(["compare", "extraction", "--tag", "nope"])
@@ -813,8 +813,8 @@ def test_export_filters_by_tag(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_tagged_runs(tmp_path / "lineage.db")
     out = tmp_path / "tagged.csv"
 
@@ -832,8 +832,8 @@ def test_compare_diff_config_shows_key_delta(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     _seed_runs(tmp_path / "lineage.db", [0.55, 0.8])
 
     result = _invoke(["compare", "extraction", "--diff-config"])
@@ -849,8 +849,8 @@ def test_compare_diff_config_identical_configs(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     db = LineageDB(tmp_path / "lineage.db")
     db.init_schema()
     run_ids: list[str] = []
@@ -881,8 +881,8 @@ def test_compare_cases_shows_broke_fixed_summary(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     db = LineageDB(tmp_path / "lineage.db")
     db.init_schema()
 
@@ -944,8 +944,8 @@ def test_compare_cases_needs_two_runs(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     _seed_runs(tmp_path / "lineage.db", [0.8], cases=True)
 
     result = _invoke(["compare", "extraction", "--cases"])
@@ -959,8 +959,8 @@ def test_compare_cases_dataset_version_warning(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     db = LineageDB(tmp_path / "lineage.db")
     db.init_schema()
 
@@ -1025,8 +1025,8 @@ def test_show_run_renders_error_column_and_count(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_id = _seed_run_with_errors(tmp_path / "lineage.db")
 
     result = _invoke(["show", "extraction", "--run", run_id[:8]])
@@ -1041,8 +1041,8 @@ def test_show_run_clean_run_no_errored_count(
     _hermetic_settings: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CRUCIBLE_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
-    monkeypatch.setattr("crucible.cli.context.get_registration", lambda app: _registration())
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
     run_ids = _seed_runs(tmp_path / "lineage.db", [0.8], cases=True)
 
     result = _invoke(["show", "extraction", "--run", run_ids[0][:8]])

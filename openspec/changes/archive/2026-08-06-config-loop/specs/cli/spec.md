@@ -33,11 +33,11 @@ The CLI SHALL support running a baseline evaluation for a single named applicati
 The CLI's evaluate subcommand SHALL accept an optional `--model <name>` flag that sets the model used for the app's LLM calls for that run, overriding `settings.model_name`. The model used for LLM judging SHALL remain the configured judge model, independent of `--model`.
 
 #### Scenario: Evaluating with a specific model
-- **WHEN** a user runs `crucible evaluate <app> --model <name>`
+- **WHEN** a user runs `refinely evaluate <app> --model <name>`
 - **THEN** the run SHALL execute the app with `<name>` as the app model and SHALL record `model_name=<name>` on the run
 
 #### Scenario: Default model used without the flag
-- **WHEN** a user runs `crucible evaluate <app>` without `--model`
+- **WHEN** a user runs `refinely evaluate <app>` without `--model`
 - **THEN** the run SHALL use `settings.model_name` as the app model and SHALL record that name on the run
 
 ### Requirement: Fan out evaluation across models
@@ -45,11 +45,11 @@ The CLI's evaluate subcommand SHALL accept an optional `--model <name>` flag tha
 The CLI's evaluate subcommand SHALL accept an optional `--models <name1,name2,...>` flag that runs one evaluation per model in the list, recording each as a separate run with its own model name.
 
 #### Scenario: Evaluating across multiple models
-- **WHEN** a user runs `crucible evaluate <app> --models a,b,c`
+- **WHEN** a user runs `refinely evaluate <app> --models a,b,c`
 - **THEN** the system SHALL produce three separate runs, one per model, each recorded with its corresponding `model_name`
 
 #### Scenario: Empty model list
-- **WHEN** a user runs `crucible evaluate <app> --models ""` or the flag value is an empty list
+- **WHEN** a user runs `refinely evaluate <app> --models ""` or the flag value is an empty list
 - **THEN** the CLI SHALL exit with a clear error
 
 ### Requirement: Manage named configs via the CLI
@@ -57,25 +57,25 @@ The CLI's evaluate subcommand SHALL accept an optional `--models <name1,name2,..
 The CLI SHALL provide a `config` subcommand group for managing stored configs: `config save <name> --app <app> --config <json>`, `config list [--app <app>]`, `config show <name> --app <app>`, `config rm <name> --app <app>`, and `config default <app> --set <name>` / `config default <app> --clear`.
 
 #### Scenario: Saving a config
-- **WHEN** a user runs `crucible config save my-run --app extraction --config '{"temperature": 0.4}'`
+- **WHEN** a user runs `refinely config save my-run --app extraction --config '{"temperature": 0.4}'`
 - **THEN** the CLI SHALL write `configs/extraction/my-run.json` and report the written path
 
 #### Scenario: Saving an invalid config
-- **WHEN** a user runs `crucible config save <name> --app <app> --config <invalid-json>`
+- **WHEN** a user runs `refinely config save <name> --app <app> --config <invalid-json>`
 - **THEN** the CLI SHALL exit with a clear error and SHALL NOT create the file
 
 #### Scenario: Setting the default config
-- **WHEN** a user runs `crucible config default <app> --set <name>` and `configs/<app>/<name>.json` exists
+- **WHEN** a user runs `refinely config default <app> --set <name>` and `configs/<app>/<name>.json` exists
 - **THEN** the app's default config pointer SHALL be set to `<name>`
 
 #### Scenario: Clearing the default config
-- **WHEN** a user runs `crucible config default <app> --clear`
+- **WHEN** a user runs `refinely config default <app> --clear`
 - **THEN** the app's default config pointer SHALL be cleared
 
 #### Scenario: Showing a config
-- **WHEN** a user runs `crucible config show <name> --app <app>`
+- **WHEN** a user runs `refinely config show <name> --app <app>`
 - **THEN** the CLI SHALL print the JSON contents of `configs/<app>/<name>.json`
 
 #### Scenario: Removing a config
-- **WHEN** a user runs `crucible config rm <name> --app <app>`
+- **WHEN** a user runs `refinely config rm <name> --app <app>`
 - **THEN** the CLI SHALL delete `configs/<app>/<name>.json`

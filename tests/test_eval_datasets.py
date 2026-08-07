@@ -1,7 +1,7 @@
 import pytest
 
-from crucible.core.exceptions import EvalError
-from crucible.eval.datasets import dataset_version, load_corpus, load_dataset
+from refinely.core.exceptions import EvalError
+from refinely.eval.datasets import dataset_version, load_corpus, load_dataset
 
 
 def test_loader_parses_extraction_dataset() -> None:

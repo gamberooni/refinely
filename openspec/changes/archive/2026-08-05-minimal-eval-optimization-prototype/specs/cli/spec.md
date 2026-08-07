@@ -1,10 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: CLI entrypoint
-The system SHALL expose a `click`-based command-line interface installed as the `crucible` console script (`[project.scripts] crucible = "crucible.cli:main"`), allowing evaluations and optimizations to be run without writing Python code.
+The system SHALL expose a `click`-based command-line interface installed as the `refinely` console script (`[project.scripts] refinely = "refinely.cli:main"`), allowing evaluations and optimizations to be run without writing Python code.
 
 #### Scenario: Invoking the CLI
-- **WHEN** a user runs `crucible --help` after installing the package
+- **WHEN** a user runs `refinely --help` after installing the package
 - **THEN** the CLI SHALL list available subcommands for running an evaluation and running an optimization
 
 ### Requirement: Run evaluation via CLI

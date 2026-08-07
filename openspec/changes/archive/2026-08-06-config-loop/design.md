@@ -23,7 +23,7 @@ Key mechanism discovered in code: apps read the model at call time via `self._se
 ## Decisions
 
 ### D1: Configs live as JSON files at `configs/<app>/<name>.json`
-Named configs are plain JSON files, namespaced per app, in a git-versionable `configs/` dir at repo root (cwd-relative, mirroring the `datasets/` convention). New module `src/crucible/config.py` owns the storage layer: `save_config(app, name, config)`, `list_configs(app=None)`, `show_config(app, name)`, `rm_config(app, name)`, `set_default(app, name)`, `clear_default(app)`, `default_config(app, registered_default)` → resolved effective config.
+Named configs are plain JSON files, namespaced per app, in a git-versionable `configs/` dir at repo root (cwd-relative, mirroring the `datasets/` convention). New module `src/refinely/config.py` owns the storage layer: `save_config(app, name, config)`, `list_configs(app=None)`, `show_config(app, name)`, `rm_config(app, name)`, `set_default(app, name)`, `clear_default(app)`, `default_config(app, registered_default)` → resolved effective config.
 - **Alternative rejected**: DB table — configs are *inputs* that should diff/commit cleanly with the repo; the DB is for *outputs* (lineage). Editing a config is an editor + git operation, not a SQLite write.
 
 ### D2: Default pointer = plain-text file `configs/<app>/.default`

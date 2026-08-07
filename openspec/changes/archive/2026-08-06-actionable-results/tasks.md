@@ -2,7 +2,7 @@
 
 ## 1. Schema: tags and error columns
 
-- [x] 1.1 Add `tags TEXT` to `evaluation_runs` metadata and `error TEXT` to `case_results` metadata in `src/crucible/tracking/db.py`
+- [x] 1.1 Add `tags TEXT` to `evaluation_runs` metadata and `error TEXT` to `case_results` metadata in `src/refinely/tracking/db.py`
 - [x] 1.2 Add two guarded `ALTER TABLE ... ADD COLUMN` backfill entries (tags on evaluation_runs, error on case_results) to `LineageDB._backfill_columns` following the existing `metric_scores` pattern (D2)
 - [x] 1.3 Add `tags: str | None = None` to the `EvaluationRun` dataclass and `error` to the `CaseRecord` read model; `_row_to_run` picks both up
 - [x] 1.4 Add `error` to `case_results_for_run` return values (None for clean cases)
@@ -28,13 +28,13 @@
 ## 5. Compare: per-case regression table
 
 - [x] 5.1 Add `--cases` flag to `cli.compare`; pair baseline (explicit `--baseline` or predecessor of newest) vs newest run by case index (D6)
-- [x] 5.2 Implement the paired per-case table in `src/crucible/reporting/render.py` (case id, before, after, Δ) plus "N broke / M fixed / K unchanged" summary (broke = score decreased, fixed = increased, unchanged = equal)
+- [x] 5.2 Implement the paired per-case table in `src/refinely/reporting/render.py` (case id, before, after, Δ) plus "N broke / M fixed / K unchanged" summary (broke = score decreased, fixed = increased, unchanged = equal)
 - [x] 5.3 Print a dataset_version mismatch warning when the two runs' versions differ; pair up to the shorter case list when lengths differ
 - [x] 5.4 Handle the degenerate cases: fewer than two runs → "needs two runs" message; a run with no case results → "per-case comparison not possible"
 
 ## 6. Error visibility in show
 
-- [x] 6.1 Render an `error` column in `cases_table` (blank for clean cases) in `src/crucible/reporting/render.py`
+- [x] 6.1 Render an `error` column in `cases_table` (blank for clean cases) in `src/refinely/reporting/render.py`
 - [x] 6.2 `show --run` prints "N cases errored" summary when N > 0
 
 ## 7. Tests

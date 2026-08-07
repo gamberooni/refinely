@@ -25,14 +25,14 @@ All experiment data already lands in the lineage SQLite DB (`lineage.db`): `eval
 ### D2: Single new DB query `list_runs(app_name, limit=50)`
 New method on `LineageDB` returning runs newest-first (`created_at` DESC) with metrics pivoted into a `metric_results` dict per run row. Implementation: two selects (runs + metric rows) joined in Python — a pivot in SQL would need per-metric CASE columns, which breaks when metric sets vary across runs (e.g., RAG has 6 metrics, extraction 3). Runs come back as dicts with parsed `configuration` and `metric_results`. `compare`'s chronological view and previous-run deltas are computed in the reporting layer from the same list (ascending by reversing the list), avoiding a second query path.
 
-### D3: New `crucible/reporting/` module for rendering and export
-Formatting/export logic lives in `src/crucible/reporting/` (`render.py` for rich tables/panels, `export.py` for CSV/JSON writers), keeping `cli.py` thin and matching the existing layering (CLI delegates to `eval/`, `optimize/`, `tracking/`). Each command: read via `LineageDB` → build data → render or export. CSV uses stdlib `csv` with utf-8 encoding; JSON uses stdlib `json` with `indent=2`. The same `list_runs` data feeds `show`, `compare`, and `export`, so deltas/formatting stay consistent.
+### D3: New `refinely/reporting/` module for rendering and export
+Formatting/export logic lives in `src/refinely/reporting/` (`render.py` for rich tables/panels, `export.py` for CSV/JSON writers), keeping `cli.py` thin and matching the existing layering (CLI delegates to `eval/`, `optimize/`, `tracking/`). Each command: read via `LineageDB` → build data → render or export. CSV uses stdlib `csv` with utf-8 encoding; JSON uses stdlib `json` with `indent=2`. The same `list_runs` data feeds `show`, `compare`, and `export`, so deltas/formatting stay consistent.
 
 ### D4: Command shapes
-- `crucible show <app>` — runs table (newest first, `--limit` default 50) + best-run and best-compile summary panels.
-- `crucible show <app> --run <run_id>` — per-case table via existing `case_results_for_run`; unknown run id → `ClickException`.
-- `crucible compare <app> [--baseline <run_id>]` — chronological table; each row's deltas vs. the immediately preceding run by default, vs. `--baseline` when given; first row (or baseline row) marked with no deltas; unknown baseline → `ClickException`.
-- `crucible export <app> [--format csv|json] [--output FILE]` — `--format` choices `[csv, json]` (default `csv`) enforced by click `Choice`; `--output` defaults to `<app>_runs.csv`/`<app>_runs.json` in cwd; always writes a file and echoes the path. CSV columns: run_id, created_at, aggregate_score, optuna_trial_number, then one column per metric (union of metric names across runs, blank when absent).
+- `refinely show <app>` — runs table (newest first, `--limit` default 50) + best-run and best-compile summary panels.
+- `refinely show <app> --run <run_id>` — per-case table via existing `case_results_for_run`; unknown run id → `ClickException`.
+- `refinely compare <app> [--baseline <run_id>]` — chronological table; each row's deltas vs. the immediately preceding run by default, vs. `--baseline` when given; first row (or baseline row) marked with no deltas; unknown baseline → `ClickException`.
+- `refinely export <app> [--format csv|json] [--output FILE]` — `--format` choices `[csv, json]` (default `csv`) enforced by click `Choice`; `--output` defaults to `<app>_runs.csv`/`<app>_runs.json` in cwd; always writes a file and echoes the path. CSV columns: run_id, created_at, aggregate_score, optuna_trial_number, then one column per metric (union of metric names across runs, blank when absent).
 - All commands read the DB through `Settings.lineage_db_path` (no new `--lineage-db` flag on read commands; the existing compile flag is out of scope for this change).
 
 ### D5: Rich panels for existing commands

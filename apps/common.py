@@ -2,7 +2,7 @@
 
 import re
 
-from crucible.core.exceptions import EvalError
+from refinely.core.exceptions import EvalError
 
 STOP_WORDS = {
     "the",

@@ -23,8 +23,8 @@ Lineage read-back answers "what scored what" but not "what changed and why": per
 
 ## Impact
 
-- `src/crucible/tracking/db.py` — `tags` + `error` columns, backfill entries, `record_run` signature (tags, per-case error), `list_runs` tag filter, `case_results_for_run` error field.
-- `src/crucible/reporting/render.py` — error column in `cases_table`; `compare_table` gains optional config-delta section; new paired per-case delta table for `--cases`.
-- `src/crucible/cli.py` — `--tags` on evaluate/optimize; `--tag` filter on show/compare/export; `--diff-config`/`--cases` flags on compare.
-- `src/crucible/eval/runner.py` — `CaseResult` gains an `error` field passed through from the existing in-memory per-case error capture (no behavior change to the loop itself).
+- `src/refinely/tracking/db.py` — `tags` + `error` columns, backfill entries, `record_run` signature (tags, per-case error), `list_runs` tag filter, `case_results_for_run` error field.
+- `src/refinely/reporting/render.py` — error column in `cases_table`; `compare_table` gains optional config-delta section; new paired per-case delta table for `--cases`.
+- `src/refinely/cli.py` — `--tags` on evaluate/optimize; `--tag` filter on show/compare/export; `--diff-config`/`--cases` flags on compare.
+- `src/refinely/eval/runner.py` — `CaseResult` gains an `error` field passed through from the existing in-memory per-case error capture (no behavior change to the loop itself).
 - No new dependencies.
