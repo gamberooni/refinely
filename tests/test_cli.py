@@ -827,6 +827,7 @@ def test_evaluate_warns_when_judge_equals_generator(
         dataset_path=DATASET_PATH,
     )
     monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: reg)
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
 
     result = _invoke(["evaluate", "extraction"])
 

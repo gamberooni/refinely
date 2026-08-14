@@ -196,6 +196,7 @@ def _metric_value(metric_result) -> float:
 
 
 def test_make_dspy_metric_correct_prediction():
+    pytest.importorskip("dspy")
     spec = DspyProgramSpec(
         build=lambda: None,
         prepare_example=lambda case: None,
@@ -435,6 +436,7 @@ def test_compile_program_mipro_default(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_compile_program_val_floor_raises(tmp_path: Path):
+    pytest.importorskip("dspy")
     import apps  # noqa: F401
     from apps.extraction import DATASET_PATH
     from refinely.eval.datasets import load_dataset
@@ -475,6 +477,7 @@ def test_compile_program_unknown_optimizer_raises(tmp_path: Path):
 
 
 def test_make_dspy_metric_drops_cost_latency_when_usage_absent(monkeypatch: pytest.MonkeyPatch):
+    pytest.importorskip("dspy")
     import refinely.dspy.lm as lm_mod
     from refinely.eval.metrics import CostMetric, LatencyMetric
 
