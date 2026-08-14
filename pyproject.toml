@@ -39,7 +39,7 @@ Issues = "https://github.com/gamberooni/refinely/issues"
 [project.optional-dependencies]
 dspy = [
     "dspy>=3.1",
-    "litellm<1.96",
+    "litellm<1.92",
 ]
 
 [project.scripts]
@@ -56,7 +56,7 @@ dev = [
 ]
 dspy = [
     "dspy>=3.1",
-    "litellm<1.96",
+    "litellm<1.92",
 ]
 
 [build-system]

@@ -41,7 +41,7 @@ def runs_table(runs: Sequence[EvaluationRun]) -> Table:
             run.created_at,
             _fmt(run.aggregate_score),
             "" if run.optuna_trial_number is None else str(run.optuna_trial_number),
-            *[_fmt(run.metric_results[m]) if m in run.metric_results else "-" for m in metrics],
+            *[_fmt(run.metric_results[m]) if m in run.metric_results else "n/a" for m in metrics],
         )
     return table
 
@@ -61,7 +61,7 @@ def cases_table(cases: Sequence[CaseRecord]) -> Table:
         table.add_row(
             case.case_id,
             _fmt(case.score),
-            *[_fmt(case.metric_scores[m]) if m in case.metric_scores else "-" for m in metrics],
+            *[_fmt(case.metric_scores[m]) if m in case.metric_scores else "n/a" for m in metrics],
             json.dumps(case.input, ensure_ascii=False),
             json.dumps(case.expected, ensure_ascii=False),
             json.dumps(case.output, ensure_ascii=False) if case.output is not None else "",
@@ -149,7 +149,7 @@ def case_pair_summary(pairs: Sequence[tuple[str, float | None, float | None, flo
 def _metric_cell(run: EvaluationRun, metric: str, ref: EvaluationRun | None) -> str:
     value = run.metric_results.get(metric)
     if value is None:
-        return "-"
+        return "n/a"
     if ref is None:
         return _fmt(value)
     ref_value = ref.metric_results.get(metric)

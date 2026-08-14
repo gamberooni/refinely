@@ -1,22 +1,6 @@
-# Optimization Engine Specification
+# Optimization Engine Specification — Delta
 
-## Purpose
-
-Per-app Optuna search-space definitions, objective-function construction that wraps the evaluation engine, and the single-objective TPE optimization loop. (Adapted from change `minimal-eval-optimization-prototype`.)
-## Requirements
-### Requirement: Per-app Optuna search space
-The system SHALL define an Optuna search space per application: for the extraction app, `temperature` (float, 0.0-1.0) and `system_prompt_variant` (categorical: "strict"/"verbose"); for the QA app, `temperature` (float, 0.0-1.0), `top_k` (int, 1-5), and `system_prompt_variant` (categorical: "strict"/"verbose").
-
-#### Scenario: Search space produces valid configs
-- **WHEN** an Optuna trial samples from an application's search space
-- **THEN** the resulting configuration dict SHALL contain only parameters valid for that application and SHALL be directly usable as the `config` argument to that application's `execute` method
-
-### Requirement: Objective function wraps evaluation
-The system SHALL construct, per application and dataset, an Optuna objective function that runs a full `EvaluationRunner` pass using the trial's sampled configuration and returns the run's `aggregate_score` as the value to maximize.
-
-#### Scenario: Objective returns the evaluation's aggregate score
-- **WHEN** Optuna calls the objective function with a `trial`
-- **THEN** the function SHALL sample a configuration from the search space, run the evaluation via `EvaluationRunner`, and return the resulting `aggregate_score` as a float
+## MODIFIED Requirements
 
 ### Requirement: Single-objective optimization loop
 
@@ -29,24 +13,6 @@ The system SHALL run a single-objective Optuna study per application using the `
 #### Scenario: The objective only sees the search split
 - **WHEN** Optuna calls the objective function with a `trial`
 - **THEN** the function SHALL sample a configuration from the search space and evaluate it on the search split only; the validation split SHALL be reserved for the final gate
-
-### Requirement: Trial results recorded to lineage
-Each Optuna trial's evaluation run SHALL be recorded to the experiment lineage tables with the Optuna trial number, so optimization progress is queryable independently of Optuna's own internal storage.
-
-#### Scenario: Trial run is linked to lineage record
-- **WHEN** an optimization trial completes an evaluation run
-- **THEN** the corresponding `evaluation_runs` row SHALL have `optuna_trial_number` set to that trial's number
-
-### Requirement: Mixed-type search spaces
-The system SHALL support per-app Optuna search spaces that combine continuous floats, categoricals, integers, and booleans in a single config sampling function.
-
-#### Scenario: RAG search space
-- **WHEN** the optimizer samples a config for the `rag` app
-- **THEN** the config SHALL contain `temperature` (float 0.0-1.0), `system_prompt_variant` (categorical strict/verbose), `retrieval_strategy` (categorical keyword/hybrid), `top_k` (int 1-6), `query_expansion` (boolean), and `rerank` (boolean)
-
-#### Scenario: Default config shape
-- **WHEN** the CLI runs a baseline evaluation of the `rag` app
-- **THEN** the default config SHALL be temperature 0.0, strict variant, hybrid retrieval, top_k 3, query_expansion off, and rerank off
 
 ### Requirement: Best config auto-save
 
@@ -68,6 +34,8 @@ After an optimization study completes, the system SHALL write the best trial's c
 - **WHEN** an `optimize` run completes and the best candidate does not beat the baseline beyond noise on the validation split
 - **THEN** the CLI SHALL report the result as not significant ("n.s."), SHALL NOT overwrite an existing `opt-best.json`, and SHALL record the n.s. status in lineage
 
+## ADDED Requirements
+
 ### Requirement: Statistical gate with repeats
 
 The system SHALL run the final candidates (baseline and the top candidate(s)) for at least 3 repeats each on the validation split, compute mean and standard deviation per configuration, and apply a significance test (non-overlapping 95% confidence intervals or a paired test across the shared validation cases) before deciding the gate verdict.
@@ -79,4 +47,3 @@ The system SHALL run the final candidates (baseline and the top candidate(s)) fo
 #### Scenario: Gate verdict recorded
 - **WHEN** an optimize study completes
 - **THEN** the study's lineage records SHALL include the gate verdict and the repeat statistics used for the decision
-

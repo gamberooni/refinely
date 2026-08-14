@@ -2,10 +2,14 @@ import json
 import sqlite3
 
 import optuna
+import pytest
 
 from apps.extraction import ExtractionApp
 from apps.rag import RAGApp
-from refinely.eval.datasets import dataset_version, load_corpus, load_dataset
+from refinely.core.exceptions import EvalError
+from refinely.eval.datasets import EvalCase, dataset_version, load_corpus, load_dataset
+from refinely.optimize.gate import gate_verdict
+from refinely.optimize.holdout import split_holdout
 from refinely.optimize.objective import build_objective
 from refinely.optimize.study import run_study
 from refinely.tracking.db import LineageDB
@@ -28,6 +32,60 @@ def _extraction_fixture(tmp_path):
         client=stub,
     )
     return objective, path
+
+
+def test_gate_requires_at_least_two_repeats() -> None:
+    with pytest.raises(ValueError):
+        gate_verdict([0.5], [0.6])
+    with pytest.raises(ValueError):
+        gate_verdict([0.5, 0.6], [0.7])
+
+
+def test_split_holdout_deterministic_and_sized() -> None:
+    cases = [EvalCase(id=f"c{i}", input={"text": str(i)}, expected=str(i)) for i in range(10)]
+
+    search_a, val_a = split_holdout(cases)
+    search_b, val_b = split_holdout(cases)
+
+    assert search_a == search_b and val_a == val_b
+    assert len(val_a) == 3 and len(search_a) == 7
+
+
+def test_split_holdout_min_val_floor() -> None:
+    cases = [EvalCase(id=f"c{i}", input={"text": str(i)}, expected=str(i)) for i in range(6)]
+
+    _, val = split_holdout(cases, val_fraction=0.1, min_val=3)
+
+    assert len(val) == 3
+
+
+def test_split_holdout_too_small_raises() -> None:
+    cases = [EvalCase(id="c0", input={"text": "x"}, expected="x")]
+
+    with pytest.raises(EvalError):
+        split_holdout(cases)
+
+
+def test_gate_verdict_significant_zero_variance() -> None:
+    gate = gate_verdict([0.5, 0.5, 0.5], [0.8, 0.8, 0.8])
+    assert gate.significant is True
+    assert gate.candidate.mean == pytest.approx(0.8)
+    assert gate.baseline.mean == pytest.approx(0.5)
+
+
+def test_gate_verdict_ns_when_cis_overlap() -> None:
+    gate = gate_verdict([0.5, 0.6, 0.4], [0.55, 0.65, 0.45])
+    assert gate.significant is False
+
+
+def test_gate_verdict_ns_when_equal() -> None:
+    gate = gate_verdict([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    assert gate.significant is False
+
+
+def test_gate_verdict_empty_scores_raise() -> None:
+    with pytest.raises(ValueError):
+        gate_verdict([], [0.8, 0.8, 0.8])
 
 
 def test_objective_returns_float_and_records_lineage(tmp_path) -> None:

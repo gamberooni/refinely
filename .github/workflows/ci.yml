@@ -29,3 +29,18 @@ jobs:
         run: uvx ruff format --check .
       - name: Test
         run: uv run pytest tests/ -q
+  test-dspy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+      - name: Install dependencies with the dspy group
+        run: uv sync --group dev --group dspy
+      - name: Lint
+        run: uvx ruff check .
+      - name: Test (incl. real-dspy integration)
+        run: uv run pytest tests/ -q

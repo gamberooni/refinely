@@ -25,7 +25,7 @@ The RAG app exists specifically to stress-test the framework: it has conditional
 - Every evaluation run and every optimization trial is persisted with its configuration, per-metric results, and per-case scores.
 - Score computation is **failure-tolerant**: a failing case or metric scores 0.0 and never aborts the run.
 - Adding a new app requires only registration entries (metrics, search space, CLI, dataset), not changes to the core engine.
-- The full test suite (247 tests) runs without any network access, using a canned-response stub LLM client.
+- The full test suite (280 tests, incl. the dspy-group integration tests) runs without any network access, using a canned-response stub LLM client.
 - Behavior is spec-driven: each capability is documented in `openspec/specs/` and changes go through the OpenSpec change workflow.
 
 ## In scope

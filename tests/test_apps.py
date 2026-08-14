@@ -75,6 +75,14 @@ def test_retrieval_keyword_strategy_excludes_substring_only_matches() -> None:
     assert keyword_idx <= hybrid_idx
 
 
+def test_retrieval_tie_break_prefers_earlier_snippets() -> None:
+    corpus = ["alpha beta one", "alpha beta two"]
+
+    result = retrieve_snippets_indexed("alpha beta", corpus, top_k=2, strategy="keyword")
+
+    assert [idx for idx, _ in result] == [0, 1]
+
+
 def test_retrieval_unknown_strategy_raises() -> None:
     with pytest.raises(EvalError, match="Unknown retrieval strategy"):
         retrieve_snippets_indexed("anything", CORPUS, strategy="bogus")
@@ -198,7 +206,8 @@ def test_qa_app_returns_answer_and_metadata() -> None:
         {"temperature": 0.1, "top_k": 2, "system_prompt_variant": "strict"},
     )
 
-    assert result.output == {"answer": "Paris"}
+    assert result.output["answer"] == "Paris"
+    assert "context" in result.output
     assert result.token_usage.prompt_tokens == 10
     assert result.latency_seconds >= 0.0
     assert stub.structured_calls[0]["temperature"] == 0.1

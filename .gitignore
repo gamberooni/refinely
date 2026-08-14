@@ -12,3 +12,7 @@ wheels/
 .opencode
 lineage.db
 .codegraph
+
+# Worktree / harness state (never committed)
+.pi/
+.task-brief.md

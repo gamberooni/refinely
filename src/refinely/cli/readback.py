@@ -69,8 +69,15 @@ def show(app: str, run_id: str | None, limit: int, page: int, pager: bool, tag: 
     with LineageDB(settings.lineage_db_path) as db:
         if run_id is not None:
             resolved = _resolve_run_id(db, app, run_id)
+            run = db.get_run(resolved)
             cases = db.case_results_for_run(resolved)
             errored = sum(1 for case in cases if case.error is not None)
+            if run is not None:
+                console.print(
+                    f"run {resolved[:12]} | model: {run.model_name or '-'} | "
+                    f"judge: {run.judge_model or '-'} ({run.judge_prompt_version or '-'}) | "
+                    f"aggregate: {run.aggregate_score:.4f}"
+                )
             if pager:
                 with console.pager(styles=True):
                     console.print(cases_table(cases))
@@ -296,16 +303,25 @@ def _compare_cases(
     if baseline_run.dataset_version != newest_run.dataset_version:
         console.print(
             f"warning: dataset versions differ ({baseline_run.dataset_version} vs "
-            f"{newest_run.dataset_version}); cases are paired by index"
+            f"{newest_run.dataset_version}); cases are paired by case id"
         )
+    baseline_by_id = {c.case_id: c for c in baseline_cases}
+    newest_by_id = {c.case_id: c for c in newest_cases}
     pairs = []
-    for base_case, new_case in zip(baseline_cases, newest_cases):
+    for case_id, new_case in newest_by_id.items():
+        base_case = baseline_by_id.get(case_id)
+        if base_case is None:
+            pairs.append((case_id, None, new_case.score, None))
+            continue
         delta = (
             None
             if base_case.score is None or new_case.score is None
             else new_case.score - base_case.score
         )
-        pairs.append((new_case.case_id, base_case.score, new_case.score, delta))
+        pairs.append((case_id, base_case.score, new_case.score, delta))
+    for case_id, base_case in baseline_by_id.items():
+        if case_id not in newest_by_id:
+            pairs.append((case_id, base_case.score, None, None))
     console.print(case_pair_table(pairs))
     console.print(case_pair_summary(pairs))
 
@@ -341,7 +357,7 @@ def export(app: str, fmt: str, output: str | None, tag: str | None) -> None:
     console = Console()
     output_path = output or f"{registration.name}_runs.{fmt}"
     with LineageDB(settings.lineage_db_path) as db:
-        runs = db.list_runs(registration.name, tag=tag)
+        runs = db.list_runs(registration.name, tag=tag, limit=None)
     if not runs:
         if tag is not None:
             console.print("no runs found matching the tag")

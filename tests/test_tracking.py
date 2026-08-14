@@ -514,7 +514,7 @@ def test_init_schema_backfills_tags_and_error_columns(
     run_cols = {r[1] for r in conn.execute("PRAGMA table_info(evaluation_runs)")}
     conn.close()
     assert {"metric_scores", "error"} <= case_cols
-    assert {"model_name", "tags"} <= run_cols
+    assert {"model_name", "tags", "judge_model", "judge_prompt_version"} <= run_cols
 
 
 def test_record_run_stores_normalized_tags_and_errors(

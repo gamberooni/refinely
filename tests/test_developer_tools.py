@@ -262,7 +262,7 @@ class TestDeveloperCli:
             ),
         )
 
-        result = self._invoke(["dataset", "extraction"])
+        result = self._invoke(["dataset", "stats", "extraction"])
 
         assert result.exit_code == 0, result.output
         assert "cases:    2" in result.output

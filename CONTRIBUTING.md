@@ -45,7 +45,7 @@ The variables are documented in [Configuration System](#configuration-system) be
 ### Verify setup
 
 ```bash
-uv run pytest tests/ -q    # expect: 247 passed, no network calls
+uv run pytest tests/ -q    # expect: 280 passed (4 dspy integration tests skip without the dspy group)
 uv run refinely --help     # CLI renders
 ```
 
@@ -54,11 +54,11 @@ uv run refinely --help     # CLI renders
 ### Test
 
 ```bash
-uv run pytest tests/ -q              # full suite (247 tests, ~1s, no live API)
+uv run pytest tests/ -q              # full suite (280 tests, no live API, ~9s)
 uv run pytest tests/test_metrics.py -q   # one file
 ```
 
-Linting is ruff (`[tool.ruff] line-length = 100`, `extend-select = ["I"]` for import sorting in `pyproject.toml`). There is no CI gate, so keep both the test suite and `uv run ruff check src apps tests` green before committing.
+Linting is ruff (`[tool.ruff] line-length = 100`, `extend-select = ["I"]` for import sorting in `pyproject.toml`). CI runs `ruff check`, `ruff format --check`, and the pytest suite on push/PR (see `.github/workflows/ci.yml`), so keep everything green before committing — including the `--group dspy` integration job.
 
 ### Run the CLI
 
@@ -242,13 +242,13 @@ Keep `docs/integration.md` in sync when the public API surface changes.
 
 - **Duck-typed apps + protocol-based metric seams** (`eval/metrics.py`): apps are plain objects with `execute(input, config) -> Result` (no protocol class); `Metric` is a runtime-checkable `Protocol`. Anything satisfying the signatures works — including test doubles. This is how new apps and metrics plug in without touching the runner.
 - **Sync facade over async client**: `AsyncOpenAIClient` is async; apps and metrics call it inside `asyncio.run(...)`. If you add a new app or metric, keep this pattern — do not make the public API async.
-- **JSON-schema-forced structured output**: `chat_structured` never relies on `response_format`; it sends the schema in the prompt, then extracts JSON via a fallback path (fence stripping, prose extraction, one repair retry) in `_chat_structured_fallback`. Tenacity retries are wired onto the client methods in `__init__`.
+- **JSON-schema-forced structured output**: `chat_structured` sends the schema in the prompt plus `response_format: json_object` on the request; parsing never *depends* on `response_format` — `_chat_structured_fallback` (fence stripping, prose extraction, one repair retry) recovers when the model ignores the schema. Tenacity retries are wired onto the client methods in `__init__`.
 - **Canned-response stubs** (`tests/stub_llm.py`): `StubLLMClient` pops canned responses from queues (`structured_responses`, `text_responses`). Instantiate it with enough entries for every call the code under test will make — including LLM judge calls in QA metric tests.
 - **Versioned dataset wrapper**: datasets are `{"version": "...", "cases": [...]}` (QA also has `"corpus"`); `load_dataset` accepts a bare JSON list too, and `dataset_version` falls back to the filename stem. When adding a dataset, point the app's registration `dataset_path` at it (`apps/*.py`).
 
 ## Testing Strategy
 
-- **Runner**: pytest, 247 tests, no network access — every test uses `StubLLMClient` with canned responses. Run everything with `uv run pytest tests/ -q` from the repo root.
+- **Runner**: pytest, 280 tests (4 dspy integration tests skip without the `dspy` group), no network access — every test uses `StubLLMClient` with canned responses. Run everything with `uv run pytest tests/ -q` from the repo root.
 - **Location/naming**: `tests/test_<module>.py`, mirroring `src/refinely/`. Shared fixture code lives in `tests/stub_llm.py`; each test file defines its own local doubles (e.g. `_StubApp` in `test_runner.py`).
 - **Isolation**: tests are hermetic with respect to the repo's `.env`. The autouse fixture in `test_core_settings.py` does `monkeypatch.setitem(Settings.model_config, "env_file", None)` — note `setitem`, because `Settings.model_config` is a dict subclass and `setattr` fails. Other test files rely on the stub client and never construct real `Settings`-driven clients.
 - **What's covered**: settings loading (env, fallback, .env precedence), client text/structured paths and JSON extraction helpers, all three apps + shared retrieval in `apps/common.py` (including the strategy switch and indexed variant), dataset loading + error paths + `dataset_stats`, the generic metrics + weight aggregation, the app registry (round-trip, duplicate/unknown errors, search-space/default/weight consistency), the runner (including failure tolerance), lineage round-trips (incl. `model_name`/`tags`/`error` columns + guarded backfills), named-config storage + `config` CLI group, the CLI package commands (evaluate/optimize/show/compare/export incl. `--tag`/`--diff-config`/`--cases`), the developer tools (`new app` scaffold, `doctor`, `dataset stats`), Optuna objective/study (against a tmp_path SQLite file), and the DSPy harness (bridge, split, compile_program end-to-end with stubbed dspy module, lm wiring).

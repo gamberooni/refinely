@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from refinely.eval.datasets import EvalCase
-from refinely.eval.metrics import Metric, aggregate_scores
+from refinely.eval.metrics import Metric, MetricUnavailableError, aggregate_scores
 from refinely.registry import get_registration
 
 
@@ -68,8 +68,11 @@ class EvaluationRunner:
                         result = metric.evaluate(case, output)
                         scores[result.metric_name] = result.value
                         metric_totals.setdefault(result.metric_name, []).append(result.value)
+                    except MetricUnavailableError:
+                        continue
                     except Exception as e:  # noqa: BLE001 - keep the run going
                         scores[metric.name] = 0.0
+                        metric_totals.setdefault(metric.name, []).append(0.0)
                         error = error or f"metric {metric.name} failed: {e}"
             else:
                 for metric in self._metrics:
@@ -88,8 +91,7 @@ class EvaluationRunner:
             )
 
         metric_results = {
-            name: (sum(values) / len(values) if values else 0.0)
-            for name, values in metric_totals.items()
+            name: sum(values) / len(values) for name, values in metric_totals.items() if values
         }
         aggregate = aggregate_scores([c.scores for c in case_results], self._weights)
 

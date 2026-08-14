@@ -14,7 +14,7 @@ def main() -> None:
 
 discover_apps()
 
-from . import (  # noqa: F401
+from . import (  # noqa: E402, F401 - needs discover_apps() above for app-name completion
     compile,
     config_cmds,
     devtools,

@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""))
     base_url: str | None = None
     model_name: str = "deepseek-v4-flash"
+    judge_model: str | None = None
     lineage_db_path: Path = Path("lineage.db")
 
     @property

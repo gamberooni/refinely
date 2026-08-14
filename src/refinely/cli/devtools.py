@@ -73,9 +73,14 @@ def doctor(network: bool) -> None:
     raise SystemExit(1)
 
 
-@main.command()
+@main.group()
+def dataset() -> None:
+    """Inspect app datasets."""
+
+
+@dataset.command()
 @click.argument("app", type=click.Choice(registered_apps()))
-def dataset(app: str) -> None:
+def stats(app: str) -> None:
     """Show structural statistics for APP's dataset."""
     registration = context.get_registration(app)
     console = Console()

@@ -1,5 +1,6 @@
 import csv
 import json
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -806,6 +807,206 @@ def test_compare_tag_no_match_prints_message(
     assert "no runs found matching the tag" in result.output
 
 
+def test_evaluate_warns_when_judge_equals_generator(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from refinely.eval.metrics import LLMJudgeMetric
+
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    reg = AppRegistration(
+        name="extraction",
+        build_adapter=lambda client, settings, program_path=None: _StubApp(),
+        metrics_factory=lambda client, settings: [
+            LLMJudgeMetric(client=client, model=settings.judge_model or settings.model_name)
+        ],
+        search_space=lambda trial: {},
+        default_config={},
+        weights={},
+        dataset_path=DATASET_PATH,
+    )
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: reg)
+
+    result = _invoke(["evaluate", "extraction"])
+
+    assert result.exit_code == 0, result.output
+    assert "judge model 'deepseek-v4-flash' equals the generator model" in result.output
+
+    result2 = _invoke(["evaluate", "extraction", "--judge-model", "judge-9"])
+
+    assert result2.exit_code == 0, result2.output
+    assert "equals the generator model" not in result2.output
+    assert "judge model:      judge-9" in result2.output
+
+
+class _ConfigScoringApp:
+    def execute(self, input: dict, config: dict) -> Result:
+        return Result(
+            output={"score": float(config.get("temperature", 0.0))},
+            token_usage=TokenUsage(prompt_tokens=1, completion_tokens=1),
+            latency_seconds=0.1,
+        )
+
+
+class _ScoreMetric:
+    name = "score"
+
+    def evaluate(self, case, output) -> object:
+        from types import SimpleNamespace
+
+        return SimpleNamespace(metric_name="score", value=float(output.output["score"]))
+
+
+class _FakeTrial:
+    def __init__(self, params: dict, number: int, value: float) -> None:
+        self.params = params
+        self.number = number
+        self.value = value
+
+
+class _FakeStudy:
+    def __init__(self, params: dict) -> None:
+        self.trials = [object()]
+        self.best_trial = _FakeTrial(params, 7, 0.9)
+
+
+def _scoring_registration() -> AppRegistration:
+    return AppRegistration(
+        name="extraction",
+        build_adapter=lambda client, settings, program_path=None: _ConfigScoringApp(),
+        metrics_factory=lambda client, settings: [_ScoreMetric()],
+        search_space=lambda trial: {"temperature": trial.suggest_float("temperature", 0.0, 1.0)},
+        default_config={"temperature": 0.0},
+        weights={"score": 1.0},
+        dataset_path=DATASET_PATH,
+    )
+
+
+def _optimize_seams(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reg: AppRegistration) -> None:
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: reg)
+    monkeypatch.setattr("refinely.cli.optimize.default_config", lambda app, default: dict(default))
+
+
+def test_optimize_writes_opt_best_when_significant(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _optimize_seams(tmp_path, monkeypatch, _scoring_registration())
+    monkeypatch.setattr(
+        "refinely.cli.context.run_study",
+        lambda app, objective, db, n_trials: _FakeStudy({"temperature": 0.9}),
+    )
+    out_path = tmp_path / "opt-best.json"
+    monkeypatch.setattr(
+        "refinely.cli.optimize.write_best_config",
+        lambda app, config: out_path.write_text(json.dumps(config)) or str(out_path),
+    )
+
+    result = _invoke(["optimize", "extraction"])
+
+    assert result.exit_code == 0, result.output
+    assert "significant" in result.output
+    assert "saved to" in result.output
+    assert out_path.exists()
+    conn = sqlite3.connect(tmp_path / "lineage.db")
+    verdicts = [r[0] for r in conn.execute("select verdict from optimize_gates")]
+    conn.close()
+    assert verdicts == ["significant"]
+
+
+def test_optimize_ns_does_not_write_opt_best(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _optimize_seams(tmp_path, monkeypatch, _registration())
+    monkeypatch.setattr(
+        "refinely.cli.context.run_study",
+        lambda app, objective, db, n_trials: _FakeStudy({"temperature": 0.9}),
+    )
+    calls: list = []
+    monkeypatch.setattr(
+        "refinely.cli.optimize.write_best_config", lambda app, config: calls.append(config) or ""
+    )
+
+    result = _invoke(["optimize", "extraction"])
+
+    assert result.exit_code == 0, result.output
+    assert "n.s." in result.output
+    assert "NOT written" in result.output
+    assert calls == []
+
+
+def test_optimize_rejects_repeats_less_than_two(_hermetic_settings: None) -> None:
+    result = _invoke(["optimize", "extraction", "--repeats", "1"])
+
+    assert result.exit_code != 0
+    assert "repeats" in result.output.lower()
+
+
+def test_evaluate_program_load_error_wrapped(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from refinely.core.exceptions import EvalError
+
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
+
+    def _bad_adapter(client, settings, program_path=None):
+        raise EvalError("artifact corrupt: missing predictions")
+
+    monkeypatch.setattr(
+        "refinely.cli.context.get_registration",
+        lambda app: _registration(
+            dspy_factory=lambda settings: object(), build_adapter=_bad_adapter
+        ),
+    )
+    prog = tmp_path / "prog.json"
+    prog.write_text("{}")
+
+    result = _invoke(["evaluate", "extraction", "--program", str(prog)])
+
+    assert result.exit_code != 0
+    assert "Failed to load compiled program" in result.output
+    assert "artifact corrupt" in result.output
+
+
+def test_export_tagged_runs_not_truncated(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+    for i in range(60):
+        db.record_run(
+            app_name="extraction",
+            dataset_version="extraction_v1",
+            configuration={"temperature": 0.1 + i},
+            aggregate_score=0.5,
+            metric_results={"exact_match": 0.5},
+            case_results=[],
+            weights=EXTRACTION_WEIGHTS,
+            tags=["prod"],
+        )
+    db.close()
+    out = tmp_path / "tagged.csv"
+
+    result = _invoke(["export", "extraction", "--tag", "prod", "--output", str(out)])
+
+    assert result.exit_code == 0, result.output
+    assert "Wrote 60 runs" in result.output
+    assert len(out.read_text().splitlines()) == 61  # header + 60 rows, no silent truncation
+
+
 def test_export_filters_by_tag(
     tmp_path: Path,
     _hermetic_settings: None,
@@ -933,6 +1134,66 @@ def test_compare_cases_shows_broke_fixed_summary(
     assert result.exit_code == 0, result.output
     assert "broke" in result.output
     assert "fixed" in result.output
+
+
+def test_compare_cases_pairs_by_case_identity(
+    tmp_path: Path,
+    _hermetic_settings: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
+    monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
+    db = LineageDB(tmp_path / "lineage.db")
+    db.init_schema()
+
+    def _scored(exacts: list[float]) -> list[CaseResult]:
+        return [
+            CaseResult(
+                case_id=f"c{i}",
+                input={"text": f"input {i}"},
+                output={"field_value": "positive"},
+                expected={"field_name": "sentiment", "field_value": "positive"},
+                scores={"exact_match": exact, "latency": 1.0, "cost": 1.0},
+            )
+            for i, exact in enumerate(exacts)
+        ]
+
+    run_ids: list[str] = [
+        db.record_run(
+            app_name="extraction",
+            dataset_version="extraction_v1",
+            configuration={"temperature": 0.1},
+            aggregate_score=0.8,
+            metric_results={"exact_match": 0.8},
+            case_results=_scored([1.0, 0.0, 0.5]),
+            weights=EXTRACTION_WEIGHTS,
+        ),
+        db.record_run(
+            app_name="extraction",
+            dataset_version="extraction_v1",
+            configuration={"temperature": 0.2},
+            aggregate_score=0.6,
+            metric_results={"exact_match": 0.6},
+            case_results=_scored([0.0, 0.0, 1.0]),
+            weights=EXTRACTION_WEIGHTS,
+        ),
+    ]
+    with db._engine.begin() as conn:
+        for i, run_id in enumerate(run_ids):
+            conn.execute(
+                evaluation_runs_table.update()
+                .where(evaluation_runs_table.c.run_id == run_id)
+                .values(
+                    created_at=(datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=i)).isoformat()
+                )
+            )
+    db.close()
+
+    result = _invoke(["compare", "extraction", "--cases"])
+
+    assert result.exit_code == 0, result.output
+    # identity pairing: c0 1.0→0.0 broke, c1 0.0→0.0 unchanged, c2 0.5→1.0 fixed
+    assert "1 broke / 1 fixed / 1 unchanged" in result.output
 
 
 def test_compare_cases_needs_two_runs(

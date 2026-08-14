@@ -411,10 +411,20 @@ class TestOptimizeAutosave:
     def test_optimize_saves_best_config(
         self, _config_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        from refinely.optimize.gate import GateResult, GateStats
+
         monkeypatch.setenv("REFINELY_LINEAGE_DB_PATH", str(tmp_path / "lineage.db"))
         monkeypatch.setattr("refinely.cli.context._client", lambda settings: StubLLMClient())
         monkeypatch.setattr("refinely.cli.context.get_registration", lambda app: _registration())
         monkeypatch.setattr("refinely.cli.context.run_study", lambda *a, **k: _FakeStudy())
+        monkeypatch.setattr(
+            "refinely.cli.optimize.gate_verdict",
+            lambda b, c: GateResult(
+                significant=True,
+                baseline=GateStats(mean=0.0, std=0.0, n=3, ci_low=0.0, ci_high=0.0),
+                candidate=GateStats(mean=0.7, std=0.0, n=3, ci_low=0.7, ci_high=0.7),
+            ),
+        )
         result = _invoke(["optimize", "extraction", "--trials", "2"], monkeypatch, tmp_path)
         assert result.exit_code == 0, result.output
         assert "opt-best.json" in result.output
