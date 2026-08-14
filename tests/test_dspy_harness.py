@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
 import pytest
@@ -502,7 +502,9 @@ def test_lm_extract_usage_from_history_dict():
     from refinely.dspy.lm import _extract_usage
 
     class FakeLM:
-        history = [{"usage": {"prompt_tokens": 10, "completion_tokens": 5}}]
+        history: ClassVar[list[dict[str, Any]]] = [
+            {"usage": {"prompt_tokens": 10, "completion_tokens": 5}}
+        ]
 
     assert _extract_usage(FakeLM()) == TokenUsage(prompt_tokens=10, completion_tokens=5)
 
@@ -511,7 +513,7 @@ def test_lm_extract_usage_empty_usage_returns_none():
     from refinely.dspy.lm import _extract_usage
 
     class FakeLM:
-        history = [{"usage": {}}]
+        history: ClassVar[list[dict[str, Any]]] = [{"usage": {}}]
 
     assert _extract_usage(FakeLM()) is None
 
@@ -520,7 +522,7 @@ def test_lm_extract_usage_no_history_returns_none():
     from refinely.dspy.lm import _extract_usage
 
     class FakeLM:
-        history = []
+        history: ClassVar[list[dict[str, Any]]] = []
 
     assert _extract_usage(FakeLM()) is None
 
