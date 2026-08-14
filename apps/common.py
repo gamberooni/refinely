@@ -72,7 +72,7 @@ def retrieve_snippets_indexed(
         if score > 0:
             scored.append((score, -idx, idx, snippet))
 
-    scored.sort(key=lambda t: (-t[0], t[1]))
+    scored.sort(key=lambda t: (-t[0], t[2]))
     return [(idx, snippet) for _, _, idx, snippet in scored[:top_k]]
 
 

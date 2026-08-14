@@ -48,6 +48,9 @@ def build_objective(
     if search_space is None:
         search_space = get_registration(app_name).search_space
     runner = EvaluationRunner(metrics, app_name, weights=weights)
+    judge = next((m for m in metrics if m.name == "llm_judge"), None)
+    judge_model = getattr(judge, "model", None) or settings.judge_model or settings.model_name
+    judge_version = getattr(judge, "prompt_version", None)
     db = LineageDB(lineage_db_path)
     db.init_schema()
 
@@ -65,6 +68,8 @@ def build_objective(
             optuna_trial_number=trial.number,
             model_name=model_name,
             tags=tags,
+            judge_model=judge_model if judge is not None else None,
+            judge_prompt_version=judge_version,
         )
         return result.aggregate_score
 

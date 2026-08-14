@@ -15,6 +15,8 @@ class EvaluationRun(BaseModel):
     dataset_version: str
     configuration: dict[str, Any]
     model_name: str | None = None
+    judge_model: str | None = None
+    judge_prompt_version: str | None = None
     tags: str | None = None
     optuna_trial_number: int | None = None
     aggregate_score: float
@@ -33,6 +35,9 @@ class CompileRecord(BaseModel):
     artifact_path: str
     baseline_score: float
     compiled_score: float
+    baseline_std: float | None = None
+    compiled_std: float | None = None
+    verdict: str | None = None
     created_at: str
 
 

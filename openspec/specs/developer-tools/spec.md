@@ -1,7 +1,8 @@
 # developer-tools Specification
 
 ## Purpose
-TBD - created by archiving change dev-ergonomics. Update Purpose after archive.
+
+Developer tooling: `new app` scaffolding (`apps/<name>.py` + dataset stub), `doctor` health checks, and `dataset stats` dataset statistics. (Adapted from change `dev-ergonomics`.)
 ## Requirements
 ### Requirement: Scaffold a new app
 The system SHALL provide `refinely new app <name> [--dataset <path>]` that creates an `apps/<name>.py` module containing a working `register_app` call with placeholders for `build_adapter`, `metrics_factory`, `search_space`, `default_config`, `weights`, and `dataset_path`, and a `datasets/<name>_v1.json` stub (empty case list). The command SHALL NOT modify `pyproject.toml`; it SHALL print the entry-point declaration line the user must add.

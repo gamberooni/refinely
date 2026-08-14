@@ -171,6 +171,8 @@ class RAGApp:
         )
 
         if self._dspy_program is not None:
+            from refinely.dspy.lm import last_usage
+
             prediction = self._dspy_program(question=question, snippets=snippet_block)
             latency = time.perf_counter() - start
             cited = getattr(prediction, "cited_snippets", [])
@@ -184,10 +186,11 @@ class RAGApp:
             return Result(
                 output={
                     "answer": getattr(prediction, "answer", ""),
+                    "context": snippet_block,
                     "retrieved_indices": retrieved_indices,
                     "cited_indices": cited if isinstance(cited, list) else [],
                 },
-                token_usage=TokenUsage(prompt_tokens=0, completion_tokens=0),
+                token_usage=last_usage(),
                 latency_seconds=latency,
             )
 
@@ -214,6 +217,7 @@ class RAGApp:
         return Result(
             output={
                 "answer": response.answer,
+                "context": snippet_block,
                 "retrieved_indices": retrieved_indices,
                 "cited_indices": response.cited_snippets,
             },
@@ -342,6 +346,7 @@ def _rag_dspy_factory(corpus: list[str]) -> DspyProgramSpec:
                 cited = []
         return {
             "answer": getattr(pred, "answer", ""),
+            "context": getattr(pred, "snippets", ""),
             "retrieved_indices": [],
             "cited_indices": cited if isinstance(cited, list) else [],
         }
@@ -362,7 +367,7 @@ def _build_adapter(
 def _metrics_factory(client: LLMClient, settings: Settings) -> list[Metric]:
     return [
         FuzzyMatchMetric(),
-        LLMJudgeMetric(client=client, model=settings.model_name),
+        LLMJudgeMetric(client=client, model=settings.judge_model or settings.model_name),
         RetrievalRecallMetric(),
         CitationAccuracyMetric(),
         LatencyMetric(),

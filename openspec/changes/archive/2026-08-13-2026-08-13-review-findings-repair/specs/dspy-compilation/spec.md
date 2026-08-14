@@ -1,19 +1,6 @@
-# dspy-compilation Specification
+# dspy-compilation Specification — Delta
 
-## Purpose
-
-Optional DSPy integration: per-app `dspy_factory` program declaration, a `BootstrapFewShot` compile harness that scores predictions through the app's registered metrics, and consumption of compiled artifacts via `build_adapter(program_path=...)` at evaluate time. (Adapted from change `dspy-compile-pipeline`.)
-## Requirements
-### Requirement: Per-app DSPy program declaration
-The system SHALL support an optional `dspy_factory` field on app registrations, a callable `dspy_factory(settings)` returning a `DspyProgramSpec` that provides a fresh uncompiled `dspy.Module` builder, an example preparer, and a prediction-to-output mapper. Apps without a `dspy_factory` SHALL remain fully supported for evaluation and Optuna optimization.
-
-#### Scenario: Registered app declares a program
-- **WHEN** an app registration includes a `dspy_factory` and `dspy` is importable
-- **THEN** the framework SHALL be able to build the app's `dspy.Module`, convert dataset cases into `dspy.Example` inputs via the preparer, and map predictions back into the app's output dict shape via the mapper
-
-#### Scenario: App without a program is unaffected
-- **WHEN** an app registration has no `dspy_factory`
-- **THEN** evaluation and optimization SHALL behave exactly as before, and the compile command SHALL report that the app does not support compilation
+## MODIFIED Requirements
 
 ### Requirement: DSPy compile harness
 
@@ -37,7 +24,7 @@ The system SHALL provide a compile pipeline that configures a `dspy.LM` from ref
 
 #### Scenario: Compile objective measures real usage
 - **WHEN** the optimizer metric scores a prediction
-- **THEN** the metric SHALL use the token usage captured from the dspy LM's forward pass so cost and latency are scored with real numbers; when usage is unavailable in the current dspy version, cost SHALL be excluded from the compile objective — the remaining weights SHALL be renormalized — and SHALL be marked `n/a` in the comparison (never scored as a constant)
+- **THEN** the metric SHALL use the token usage captured from the dspy LM's forward pass so cost and latency are scored with real numbers; when usage is unavailable in the current dspy version, cost SHALL drop out of the compile objective and SHALL be marked `n/a` in the comparison (never scored as a constant)
 
 #### Scenario: RAG compile objective excludes retrieval
 - **WHEN** the compile pipeline trains the RAG program
@@ -45,7 +32,7 @@ The system SHALL provide a compile pipeline that configures a `dspy.LM` from ref
 
 ### Requirement: Compiled program consumption
 
-The system SHALL allow an app to consume a compiled program artifact via an optional `program_path` argument on `build_adapter`; when present, the app SHALL load the compiled program and use it in place of its hardcoded prompts, and when absent SHALL use its default behavior. Compiled runs SHALL report real token usage captured from the dspy LM; when usage is unavailable, the cost metric SHALL be excluded from the compiled run's aggregate — the remaining weights SHALL be renormalized — and marked `n/a` in lineage and read-back.
+The system SHALL allow an app to consume a compiled program artifact via an optional `program_path` argument on `build_adapter`; when present, the app SHALL load the compiled program and use it in place of its hardcoded prompts, and when absent SHALL use its default behavior. Compiled runs SHALL report real token usage captured from the dspy LM; when usage is unavailable, the cost metric SHALL be excluded from the compiled run's aggregate and marked `n/a` in lineage and read-back.
 
 #### Scenario: Evaluate uses a compiled artifact
 - **WHEN** an evaluation is run with `--program <path>` for an app whose `build_adapter` accepts `program_path`
@@ -58,4 +45,3 @@ The system SHALL allow an app to consume a compiled program artifact via an opti
 #### Scenario: Compiled artifact fails to load
 - **WHEN** an evaluation is run with `--program <path>` and the artifact is missing, corrupt, or `dspy` is not installed
 - **THEN** the CLI SHALL fail with a clean error naming the problem and the install command, not a raw traceback
-

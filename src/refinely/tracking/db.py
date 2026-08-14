@@ -54,6 +54,8 @@ evaluation_runs_table = Table(
     Column("dataset_version", Text, nullable=False),
     Column("configuration", Text, nullable=False),
     Column("model_name", Text),
+    Column("judge_model", Text),
+    Column("judge_prompt_version", Text),
     Column("tags", Text),
     Column("optuna_trial_number", Integer),
     Column("aggregate_score", Float, nullable=False),
@@ -94,10 +96,28 @@ dspy_compiles_table = Table(
     Column("artifact_path", Text, nullable=False),
     Column("baseline_score", Float, nullable=False),
     Column("compiled_score", Float, nullable=False),
+    Column("baseline_std", Float),
+    Column("compiled_std", Float),
+    Column("verdict", Text),
     Column("created_at", Text, nullable=False),
 )
 
 Index("idx_evaluation_runs_app", evaluation_runs_table.c.app_name, text("aggregate_score DESC"))
+
+optimize_gates_table = Table(
+    "optimize_gates",
+    _metadata,
+    Column("gate_id", Text, primary_key=True),
+    Column("app_name", Text, nullable=False),
+    Column("trial_number", Integer),
+    Column("baseline_mean", Float),
+    Column("baseline_std", Float),
+    Column("candidate_mean", Float),
+    Column("candidate_std", Float),
+    Column("n_repeats", Integer),
+    Column("verdict", Text, nullable=False),
+    Column("created_at", Text, nullable=False),
+)
 Index("idx_case_results_run", case_results_table.c.run_id, text("score ASC"))
 Index("idx_dspy_compiles_app", dspy_compiles_table.c.app_name, text("compiled_score DESC"))
 
@@ -155,6 +175,24 @@ class LineageDB:
         if "tags" not in run_columns:
             with self._engine.begin() as conn:
                 conn.execute(text("ALTER TABLE evaluation_runs ADD COLUMN tags TEXT"))
+        if "judge_model" not in run_columns:
+            with self._engine.begin() as conn:
+                conn.execute(text("ALTER TABLE evaluation_runs ADD COLUMN judge_model TEXT"))
+        if "judge_prompt_version" not in run_columns:
+            with self._engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE evaluation_runs ADD COLUMN judge_prompt_version TEXT")
+                )
+        compile_columns = {c["name"] for c in inspector.get_columns("dspy_compiles")}
+        if "baseline_std" not in compile_columns:
+            with self._engine.begin() as conn:
+                conn.execute(text("ALTER TABLE dspy_compiles ADD COLUMN baseline_std FLOAT"))
+        if "compiled_std" not in compile_columns:
+            with self._engine.begin() as conn:
+                conn.execute(text("ALTER TABLE dspy_compiles ADD COLUMN compiled_std FLOAT"))
+        if "verdict" not in compile_columns:
+            with self._engine.begin() as conn:
+                conn.execute(text("ALTER TABLE dspy_compiles ADD COLUMN verdict TEXT"))
 
     def record_run(
         self,
@@ -168,6 +206,8 @@ class LineageDB:
         optuna_trial_number: int | None = None,
         model_name: str | None = None,
         tags: list[str] | None = None,
+        judge_model: str | None = None,
+        judge_prompt_version: str | None = None,
     ) -> str:
         """Insert one evaluation run plus its metric and case rows. Returns the generated run_id."""
         run_id = uuid.uuid4().hex
@@ -182,6 +222,8 @@ class LineageDB:
                     configuration=json.dumps(configuration, sort_keys=True),
                     model_name=model_name,
                     tags=_normalize_tags(tags),
+                    judge_model=judge_model,
+                    judge_prompt_version=judge_prompt_version,
                     optuna_trial_number=optuna_trial_number,
                     aggregate_score=aggregate_score,
                     created_at=created_at,
@@ -306,7 +348,7 @@ class LineageDB:
     def list_runs(
         self,
         app_name: str,
-        limit: int = 50,
+        limit: int | None = 50,
         offset: int = 0,
         model_name: str | None = None,
         tag: str | None = None,
@@ -316,17 +358,17 @@ class LineageDB:
         Metrics are pivoted into a ``metric_results`` dict per run via a
         Python-side join of two selects, since metric sets vary across apps.
         Optionally restrict to runs recorded with a given model name or tag.
+        A tag filter is applied to the full matching set before any LIMIT,
+        so filtered read-back is never silently truncated.
         """
         runs_stmt = select(evaluation_runs_table).where(
             evaluation_runs_table.c.app_name == app_name
         )
         if model_name is not None:
             runs_stmt = runs_stmt.where(evaluation_runs_table.c.model_name == model_name)
-        runs_stmt = (
-            runs_stmt.order_by(evaluation_runs_table.c.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
+        runs_stmt = runs_stmt.order_by(evaluation_runs_table.c.created_at.desc())
+        if tag is None and limit is not None:
+            runs_stmt = runs_stmt.limit(limit).offset(offset)
         with self._engine.connect() as conn:
             run_rows = conn.execute(runs_stmt).mappings().all()
             if not run_rows:
@@ -345,6 +387,8 @@ class LineageDB:
                 for r in runs
                 if r.tags is not None and tag in [t.strip() for t in r.tags.split(",")]
             ]
+            if limit is not None:
+                runs = runs[offset : offset + limit]
         return runs
 
     def _metrics_by_run_id(
@@ -370,6 +414,37 @@ class LineageDB:
         with self._engine.connect() as conn:
             return int(conn.execute(stmt).scalar_one())
 
+    def record_gate(
+        self,
+        app_name: str,
+        trial_number: int | None,
+        baseline_mean: float,
+        baseline_std: float,
+        candidate_mean: float,
+        candidate_std: float,
+        n_repeats: int,
+        verdict: str,
+    ) -> str:
+        """Insert one optimize significance-gate row. Returns the generated gate_id."""
+        gate_id = uuid.uuid4().hex
+        created_at = datetime.now(UTC).isoformat()
+        with self._engine.begin() as conn:
+            conn.execute(
+                optimize_gates_table.insert().values(
+                    gate_id=gate_id,
+                    app_name=app_name,
+                    trial_number=trial_number,
+                    baseline_mean=baseline_mean,
+                    baseline_std=baseline_std,
+                    candidate_mean=candidate_mean,
+                    candidate_std=candidate_std,
+                    n_repeats=n_repeats,
+                    verdict=verdict,
+                    created_at=created_at,
+                )
+            )
+        return gate_id
+
     def record_compile(
         self,
         app_name: str,
@@ -379,6 +454,9 @@ class LineageDB:
         artifact_path: str,
         baseline_score: float,
         compiled_score: float,
+        baseline_std: float | None = None,
+        compiled_std: float | None = None,
+        verdict: str | None = None,
     ) -> str:
         """Insert one DSPy compile row. Returns the generated compile_id."""
         compile_id = uuid.uuid4().hex
@@ -394,6 +472,9 @@ class LineageDB:
                     artifact_path=artifact_path,
                     baseline_score=baseline_score,
                     compiled_score=compiled_score,
+                    baseline_std=baseline_std,
+                    compiled_std=compiled_std,
+                    verdict=verdict,
                     created_at=created_at,
                 )
             )

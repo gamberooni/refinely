@@ -282,8 +282,10 @@ The `refinely` CLI adds two conveniences on top of the library core:
   defaults. A driver passes its own client and settings — the framework never
   reads your configuration.
 - **Structured output**: `AsyncOpenAIClient.chat_structured` takes a pydantic
-  response model, forces JSON via the prompt, strips fences, and retries once on
-  parse failure — no `response_format` dependency.
+  response model, forces JSON via the prompt plus `response_format:
+  json_object` on the request, strips fences, and retries once on parse
+  failure — parsing never depends on `response_format` (the fallback recovers
+  when the model ignores it).
 
 ## DSPy compile (optional)
 

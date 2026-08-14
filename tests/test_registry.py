@@ -126,6 +126,21 @@ def test_weights_sum_to_one_per_app() -> None:
         assert sum(weights.values()) == pytest.approx(1.0)
 
 
+def test_weights_are_subset_of_metric_names() -> None:
+    from refinely.core.settings import Settings
+    from tests.stub_llm import StubLLMClient
+
+    Settings.model_config["env_file"] = None
+    client = StubLLMClient()
+    settings = Settings()
+    for name in DEMO_APPS:
+        registration = get_registration(name)
+        metric_names = {m.name for m in registration.metrics_factory(client, settings)}
+        assert set(registration.weights) <= metric_names, (
+            f"{name}: weights {set(registration.weights)} not a subset of metrics {metric_names}"
+        )
+
+
 def test_register_app_dspy_factory_roundtrip() -> None:
     def factory(settings):
         return DspyProgramSpec(

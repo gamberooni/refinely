@@ -78,12 +78,17 @@ class QAApp:
         snippet_block = format_snippet_block(snippets)
 
         if self._dspy_program is not None:
+            from refinely.dspy.lm import last_usage
+
             start = time.perf_counter()
             prediction = self._dspy_program(question=question, snippets=snippet_block)
             latency = time.perf_counter() - start
             return Result(
-                output={"answer": getattr(prediction, "answer", "")},
-                token_usage=TokenUsage(prompt_tokens=0, completion_tokens=0),
+                output={
+                    "answer": getattr(prediction, "answer", ""),
+                    "context": snippet_block,
+                },
+                token_usage=last_usage(),
                 latency_seconds=latency,
             )
 
@@ -109,7 +114,7 @@ class QAApp:
         latency = time.perf_counter() - start
 
         return Result(
-            output=response.model_dump(),
+            output={**response.model_dump(), "context": snippet_block},
             token_usage=TokenUsage(
                 prompt_tokens=usage.prompt_tokens,
                 completion_tokens=usage.completion_tokens,
@@ -162,7 +167,10 @@ def _qa_dspy_factory(corpus: list[str], settings: Settings) -> DspyProgramSpec:
         return example
 
     def prediction_to_output(pred) -> dict:
-        return {"answer": getattr(pred, "answer", "")}
+        return {
+            "answer": getattr(pred, "answer", ""),
+            "context": getattr(pred, "snippets", ""),
+        }
 
     return DspyProgramSpec(
         build=build,
@@ -178,7 +186,7 @@ def _build_adapter(client: LLMClient, settings: Settings, program_path: str | No
 def _metrics_factory(client: LLMClient, settings: Settings) -> list[Metric]:
     return [
         FuzzyMatchMetric(),
-        LLMJudgeMetric(client=client, model=settings.model_name),
+        LLMJudgeMetric(client=client, model=settings.judge_model or settings.model_name),
         LatencyMetric(),
         CostMetric(),
     ]

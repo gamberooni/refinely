@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from refinely.config import ConfigError, default_config, is_valid_name, show_config
+from refinely.core.exceptions import EvalError
 from refinely.eval.runner import EvaluationRunner
 from refinely.registry import AppRegistration, registered_apps
 from refinely.tracking.db import LineageDB, _normalize_tags
@@ -44,6 +45,18 @@ from .context import _load_run_context
     help="Comma-separated model names to fan out evaluation across (one run per model).",
 )
 @click.option(
+    "--judge-model",
+    "judge_model_override",
+    default=None,
+    type=str,
+    help="Model for the LLM judge (default: settings.judge_model or settings.model_name).",
+)
+@click.option(
+    "--judge-consistency",
+    is_flag=True,
+    help="After the run, re-score a sample with two judge calls and report agreement.",
+)
+@click.option(
     "--tags",
     default=None,
     type=str,
@@ -55,6 +68,8 @@ def evaluate(
     config_json: str | None,
     model_name: str | None,
     models: str | None,
+    judge_model_override: str | None,
+    judge_consistency: bool,
     tags: str | None,
 ) -> None:
     """Run an evaluation of APP against its default dataset."""
@@ -93,6 +108,8 @@ def evaluate(
                 program,
                 model=model,
                 tags=tags,
+                judge_model_override=judge_model_override,
+                judge_consistency=judge_consistency,
             )
         return
 
@@ -106,6 +123,8 @@ def evaluate(
         program,
         model=model_name,
         tags=tags,
+        judge_model_override=judge_model_override,
+        judge_consistency=judge_consistency,
     )
 
 
@@ -144,21 +163,64 @@ def _run_evaluation(
     program: str | None,
     model: str | None,
     tags: str | None = None,
+    judge_model_override: str | None = None,
+    judge_consistency: bool = False,
 ) -> None:
-    """Run a single evaluation (app + judge models per D5) and record the run."""
+    """Run a single evaluation (app + judge models per D1) and record the run."""
     app_settings = settings.model_copy(update={"model_name": model or settings.model_name})
-    app_obj = (
-        registration.build_adapter(client, app_settings, program_path=program)
-        if registration.dspy_factory is not None
-        else registration.build_adapter(client, app_settings)
+    judge_settings = (
+        settings.model_copy(update={"judge_model": judge_model_override})
+        if judge_model_override is not None
+        else settings
     )
-    runner = EvaluationRunner(registration.metrics_factory(client, settings), registration.name)
+    console = Console()
+    metrics = registration.metrics_factory(client, judge_settings)
+    judge = next((m for m in metrics if m.name == "llm_judge"), None)
+    judge_model = getattr(judge, "model", None) or judge_settings.judge_model or settings.model_name
+    judge_version = getattr(judge, "prompt_version", None)
+    if (
+        judge is not None
+        and judge_model == app_settings.model_name
+        and judge_model_override is None
+    ):
+        console.print(
+            f"[yellow]warning: judge model {judge_model!r} equals the generator model; "
+            "pass --judge-model to use a distinct judge[/yellow]"
+        )
+    app_obj = None
+    try:
+        app_obj = (
+            registration.build_adapter(client, app_settings, program_path=program)
+            if registration.dspy_factory is not None
+            else registration.build_adapter(client, app_settings)
+        )
+    except EvalError as exc:
+        if program is not None:
+            raise click.ClickException(f"Failed to load compiled program: {exc}") from exc
+        raise
+    runner = EvaluationRunner(metrics, registration.name)
     result = runner.run(
         dataset,
         app_obj,
         config=config,
         dataset_version=version,
     )
+
+    if judge_consistency and judge is not None:
+        from refinely.eval.datasets import EvalCase
+        from refinely.eval.metrics import judge_agreement
+
+        samples = [
+            (
+                EvalCase(id=cr.case_id, input=cr.input, expected=cr.expected),
+                cr.output if isinstance(cr.output, dict) else {},
+            )
+            for cr in result.case_results[:5]
+        ]
+        agreement = judge_agreement(client, judge_model, samples)
+        console.print(
+            f"judge consistency (n={len(samples)}): {agreement:.0%} agreement within tolerance"
+        )
 
     tag_list = [t.strip() for t in tags.split(",")] if tags else None
     with LineageDB(settings.lineage_db_path) as db:
@@ -172,13 +234,16 @@ def _run_evaluation(
             weights=registration.weights,
             model_name=app_settings.model_name,
             tags=tag_list,
+            judge_model=judge_model if judge is not None else None,
+            judge_prompt_version=judge_version,
         )
 
-    Console().print(
+    console.print(
         Panel(
             "\n".join(
                 [
                     f"model:            {app_settings.model_name}",
+                    f"judge model:      {judge_model if judge is not None else '-'}",
                     f"aggregate_score:  {result.aggregate_score:.4f}",
                     f"metric_results:   {result.metric_results}",
                     f"tags:             {_normalize_tags(tag_list) or '-'}",

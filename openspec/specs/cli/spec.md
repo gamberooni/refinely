@@ -47,22 +47,22 @@ The system SHALL register the `rag` app in the CLI so its dataset can be evaluat
 - **THEN** the CLI SHALL resolve the rag dataset and corpus, build the RAG app with the shared client, and run the standard evaluation or optimization flow, recording the run in lineage
 
 ### Requirement: Compile application via CLI
-The CLI SHALL support a `compile` subcommand that runs the DSPy compile pipeline for a single named application, with optional flags for the training-set cap, optimizer settings (`--max-rounds`, `--max-labeled-demos`, `--max-bootstrapped-demos`), artifact output directory, and lineage database path.
 
-#### Scenario: Running a compile
-- **WHEN** a user runs the CLI's compile subcommand with an application name that declares a `dspy_factory`
-- **THEN** the system SHALL run the compile pipeline, print the artifact path and baseline/compiled scores, and record the compile in the lineage database
+The `compile` command SHALL accept a `--optimizer {bfs,mipro}` flag (default `mipro`), per-optimizer hyperparameter flags, and a `--min-val` flag (default 5) setting the validation-size floor. The CLI SHALL print the optimizer used, the train/val split sizes, the repeat statistics, and the gate verdict (significant or "n.s."), and SHALL NOT claim improvement when the result is n.s.
 
-#### Scenario: Compiling an app without a program
-- **WHEN** a user runs the CLI's compile subcommand with an application name that has no `dspy_factory`
-- **THEN** the system SHALL exit with a clear error naming the applications that do support compilation
+#### Scenario: Selecting the optimizer
+- **WHEN** a user runs `refinely compile <app> --optimizer mipro`
+- **THEN** the CLI SHALL compile with MIPROv2 and report the optimizer name
+- **WHEN** a user runs `refinely compile <app> --optimizer bfs`
+- **THEN** the CLI SHALL compile with BootstrapFewShot (backwards-compatible path)
 
 ### Requirement: Evaluate with a compiled program
-The CLI's evaluate subcommand SHALL accept an optional `--program <path>` flag that is forwarded to the application's `build_adapter` so the evaluation runs through a compiled artifact.
 
-#### Scenario: Evaluating a compiled artifact
-- **WHEN** a user runs the CLI's evaluate subcommand with an application name and `--program <path>`
-- **THEN** the system SHALL build the app with that program path, run the evaluation, print the aggregate score, and record the run to the lineage database
+When an evaluation is run with `--program <path>`, the CLI SHALL load the compiled program through the app's `build_adapter(program_path=...)`. If the artifact is missing, corrupt, or `dspy` is not installed, the CLI SHALL fail with a clean error naming the problem and the install command, not a raw traceback.
+
+#### Scenario: Missing or corrupt artifact
+- **WHEN** a user runs `refinely evaluate <app> --program <path>` and the file does not exist, is corrupt, or `dspy` is not installed
+- **THEN** the CLI SHALL exit with a clean ClickException-style error explaining the cause and (for a missing dependency) the install command
 
 ### Requirement: Show run history via CLI
 The CLI SHALL support a `show` subcommand (`refinely show <app>`) that reads the lineage database and renders the app's run history, and (`refinely show <app> --run <run_id>`) per-case results for a specific run. Run ids SHALL accept a unique prefix in place of the full id.
@@ -176,3 +176,16 @@ The CLI SHALL support a `dataset stats` subcommand (`refinely dataset stats <app
 #### Scenario: Running dataset stats
 - **WHEN** a user runs `refinely dataset stats <app>`
 - **THEN** the CLI SHALL print the dataset's case count, file size, shape summaries, and malformed-case report (or a clear parse error naming the file and failing case)
+
+### Requirement: Judge model override
+
+The `evaluate`, `optimize`, and `compile` commands SHALL accept a `--judge-model <name>` option that selects the model used by the LLM judge, independent of the app's generator model (see evaluation-engine: judge model decoupling). Without the option, the judge SHALL use `settings.judge_model`. When the resolved judge model equals the generator model, the CLI SHALL warn loudly unless the user explicitly passed `--judge-model`.
+
+#### Scenario: Overriding the judge model
+- **WHEN** a user runs `refinely evaluate <app> --judge-model <other-model>`
+- **THEN** the judge SHALL use `<other-model>` and the run's lineage SHALL record it
+
+#### Scenario: Judge equals the generator
+- **WHEN** an evaluation runs and the resolved judge model equals the app's generator model without an explicit `--judge-model`
+- **THEN** the CLI SHALL warn loudly that the judge is scoring with the same model that generated the answers
+

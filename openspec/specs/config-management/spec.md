@@ -1,7 +1,8 @@
 # config-management Specification
 
 ## Purpose
-TBD - created by archiving change config-loop. Update Purpose after archive.
+
+Named per-app config files (`configs/<app>/<name>.json`), the `config` CLI group (save/list/show/rm/default), and name-or-inline resolution of `--config` by evaluate/optimize, including the `opt-best.json` auto-save. (Adapted from change `config-loop`.)
 ## Requirements
 ### Requirement: Named configs stored as files
 

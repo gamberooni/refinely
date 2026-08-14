@@ -1,5 +1,6 @@
 import pytest
 
+from refinely.core.exceptions import EvalError
 from refinely.eval.datasets import EvalCase
 from refinely.eval.metrics import (
     CostMetric,
@@ -7,6 +8,7 @@ from refinely.eval.metrics import (
     LatencyMetric,
     LLMJudgeMetric,
     aggregate_scores,
+    judge_agreement,
 )
 from refinely.llm.usage import Result, TokenUsage
 from tests.stub_llm import StubLLMClient
@@ -73,30 +75,59 @@ def test_cost_metric_normalizes() -> None:
     assert cheap.raw["cost_dollars"] >= 0.0
 
 
-def test_llm_judge_rating_5() -> None:
-    stub = StubLLMClient(text_responses=["5"])
-    m = LLMJudgeMetric(client=stub, model="gpt-4o-mini").evaluate(
-        _case("Paris", question="capital?"), _result({"answer": "Paris"})
+def test_llm_judge_groundedness_score() -> None:
+    stub = StubLLMClient(structured_responses=[{"score": 1.0, "rationale": "fully supported"}])
+    m = LLMJudgeMetric(client=stub, model="judge-1").evaluate(
+        _case("Paris", question="capital?"),
+        _result({"answer": "Paris", "context": "Paris is the capital of France."}),
+    )
+    assert m.value == 1.0
+    assert stub.structured_calls[0]["model"] == "judge-1"
+
+
+def test_llm_judge_prompt_does_not_leak_expected_answer() -> None:
+    stub = StubLLMClient(structured_responses=[{"score": 0.8, "rationale": "ok"}])
+    LLMJudgeMetric(client=stub, model="judge-1").evaluate(
+        _case("Rome", question="capital of France?"),
+        _result({"answer": "Paris", "context": "Paris is the capital of France."}),
+    )
+    prompt = stub.structured_calls[0]["messages"][-1]["content"]
+    assert "Rome" not in prompt
+    assert "Expected" not in prompt
+    assert "Context:" in prompt
+
+
+def test_llm_judge_requires_context() -> None:
+    stub = StubLLMClient(structured_responses=[{"score": 0.5, "rationale": "x"}])
+    with pytest.raises(EvalError):
+        LLMJudgeMetric(client=stub, model="judge-1").evaluate(
+            _case("Paris", question="capital?"), _result({"answer": "Paris"})
+        )
+
+
+def test_llm_judge_clamps_score() -> None:
+    stub = StubLLMClient(structured_responses=[{"score": 1.7, "rationale": "over"}])
+    m = LLMJudgeMetric(client=stub, model="judge-1").evaluate(
+        _case("Paris", question="capital?"),
+        _result({"answer": "Paris", "context": "Paris is the capital."}),
     )
     assert m.value == 1.0
 
 
-def test_llm_judge_rating_3() -> None:
-    stub = StubLLMClient(text_responses=["Rating: 3"])
-    m = LLMJudgeMetric(client=stub, model="gpt-4o-mini").evaluate(
-        _case("Paris", question="capital?"), _result({"answer": "France"})
+def test_judge_agreement_reports_fraction() -> None:
+    stub = StubLLMClient(
+        structured_responses=[
+            {"score": 0.9, "rationale": "a"},
+            {"score": 0.9, "rationale": "b"},
+            {"score": 0.1, "rationale": "c"},
+            {"score": 0.9, "rationale": "d"},
+        ]
     )
-    assert m.value == pytest.approx(0.5)
-
-
-def test_llm_judge_invalid_rating_raises() -> None:
-    stub = StubLLMClient(text_responses=["not a rating"])
-    from refinely.core.exceptions import EvalError
-
-    with pytest.raises(EvalError):
-        LLMJudgeMetric(client=stub, model="gpt-4o-mini").evaluate(
-            _case("Paris", question="capital?"), _result({"answer": "Paris"})
-        )
+    samples = [
+        (_case("P1", question="q1"), {"answer": "a1", "context": "ctx"}),
+        (_case("P2", question="q2"), {"answer": "a2", "context": "ctx"}),
+    ]
+    assert judge_agreement(stub, "judge-1", samples) == 0.5
 
 
 def test_aggregate_scores_weighted_mean() -> None:
@@ -109,10 +140,27 @@ def test_aggregate_scores_weighted_mean() -> None:
     assert aggregate_scores(scores, weights) == pytest.approx(expected)
 
 
-def test_aggregate_scores_missing_metric_counts_zero() -> None:
+def test_aggregate_scores_missing_metric_excluded_and_renormalized() -> None:
     scores = [{"exact_match": 0.5}]
     weights = {"exact_match": 0.5, "latency": 0.5}
-    assert aggregate_scores(scores, weights) == pytest.approx(0.25)
+    # latency unavailable -> excluded, exact_match weight renormalized to 1.0
+    assert aggregate_scores(scores, weights) == pytest.approx(0.5)
+
+
+def test_aggregate_scores_renormalizes_per_case() -> None:
+    scores = [
+        {"exact_match": 1.0},  # latency unavailable for this case
+        {"exact_match": 0.0, "latency": 1.0},
+    ]
+    weights = {"exact_match": 0.5, "latency": 0.5}
+    # case 1: 1.0 (renormalized), case 2: 0.5*0 + 0.5*1 = 0.5 -> mean 0.75
+    assert aggregate_scores(scores, weights) == pytest.approx(0.75)
+
+
+def test_aggregate_scores_skips_fully_unavailable_cases() -> None:
+    scores = [{}, {"exact_match": 1.0}]
+    weights = {"exact_match": 1.0}
+    assert aggregate_scores(scores, weights) == pytest.approx(1.0)
 
 
 def test_aggregate_scores_empty() -> None:

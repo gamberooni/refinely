@@ -1,2 +1,1 @@
-def hello() -> str:
-    return "Hello from refinely!"
+"""Refinely: evaluate and optimize LLM application configurations."""
